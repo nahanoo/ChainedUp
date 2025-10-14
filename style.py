@@ -1,12 +1,14 @@
 width, height = 180, 180
 colors = {
-    "ct": "#7570B3",
-    "oa": "#D95F02",
-    "ms": "#E6AB02",
-    "at": "#1B9E77",
-
+    "blue": "#000080",
+    "ct": "#e1812c",
+    "oa": "#c03d3e",
+    "ms": "#3274a1",
+    "at": "#3b923b",
+    "Spent media Ct": "#1B9E77",
+    "Spent media Oa": "#E7298A",
+    "H20": "gray",
 }
-
 
 
 def style_plot(
@@ -87,4 +89,6 @@ def style_plot(
     fig.for_each_yaxis(
         lambda axis: axis.title.update(font=dict(size=font_size, color="black"))
     )
+    fig.for_each_xaxis(lambda axis: axis.update(ticks="inside"))
+    fig.for_each_yaxis(lambda axis: axis.update(ticks="inside"))
     return fig

@@ -50,8 +50,9 @@ def N1C1C2_strategy(y, t, p):
 
 def plot_N1C1C2():
     p = parse_params()
-    xs = np.linspace(0, 1000, 10000)
-    y0 = [1, 0, 10, 10]
+    p["M1"] = 4
+    xs = np.linspace(0, 70, 10000)
+    y0 = [0.3, 0, p["M1"], 0]
     ys = odeint(N1C1C2, y0, xs, args=(p,))
     N1C1, N1C2, R1C1, R1C2 = ys.T
     fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
@@ -109,8 +110,8 @@ def N1N2C1C2(y, t, p):
 
 def plot_N1N2C1C2():
     p = parse_params()
-    xs = np.linspace(0, 1000, 10000)
-    y0 = [1, 1, 0, 0, 10, 10]
+    xs = np.linspace(0, 200, 10000)
+    y0 = [1, 1, 0, 0, 10, 0]
     ys = odeint(N1N2C1C2, y0, xs, args=(p,))
     N1C1, N2C1, N1C2, N2C2, R1C1, R1C2 = ys.T
     fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
@@ -147,8 +148,8 @@ def plot_N1N2C1C2():
 
 def plot_N1C1C2_cfus():
     p = parse_params(cfus=True)
-    xs = np.linspace(0, 1000, 10000)
-    y0 = [100000, 0, 10, 10]
+    xs = np.linspace(0, 72, 10000)
+    y0 = [50000000.0, 0, 0, 0]
     ys = odeint(N1C1C2, y0, xs, args=(p,))
     N1C1, N1C2, R1C1, R1C2 = ys.T
     fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
@@ -206,8 +207,8 @@ def N1O2C1C2(y, t, p):
 
 def plot_N1O2C1C2():
     p = parse_params()
-    xs = np.linspace(0, 1000, 10000)
-    y0 = [0.1, 0, 10, 10, 8, 8]
+    xs = np.linspace(0, 200, 10000)
+    y0 = [0.1, 0, 10, 0, 8, 8]
     ys = odeint(N1O2C1C2, y0, xs, args=(p,))
     N1C1, N1C2, R1C1, R1C2, OC1, OC2 = ys.T
     fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
@@ -283,9 +284,9 @@ def plot_N1O2C1C2():
 
 def N1C1C2_cross_feeding():
     p = parse_params(cfus=True)
-    p["D"] = 0.1
+    p["D"] = 0
     xs = np.linspace(0, 200, 10000)
-    y0 = [200000, 0, 10, 10, 0, 0]
+    y0 = [200000, 0, 10, 0, 0, 0]
     ys = odeint(N1C1C2_strategy, y0, xs, args=(p,))
     N1C1, N1C2, R1C1, R1C2, M1C1, M1C2 = ys.T
     fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
@@ -326,3 +327,124 @@ def N1C1C2_cross_feeding():
     print("N1C1:", N1C1[-1], "N1C2:", N1C2[-1])
     print("R1C1:", R1C1[-1], "R1C2:", R1C2[-1])
     print("M1C1:", M1C1[-1], "M1C2:", M1C2[-1])
+
+
+def plot_Km_D_contour():
+    Ds = np.linspace(0.01, 0.2, 100)
+    Kms = np.linspace(1, 50, 100)
+    r = 0.3
+    D, Km = np.meshgrid(Ds, Kms)
+    z = np.log(-D * Km / (D - r))
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Contour(
+            z=z,
+            x=Ds,
+            y=Kms,
+            colorscale="Viridis",
+            contours=dict(showlines=False),
+            ncontours=1000,
+            colorbar=dict(
+                len=0.6, y=0.2, thickness=10, outlinewidth=0.5, outlinecolor="black"
+            ),
+            hovertext=["R*", np.exp(z), "mM"],
+        )
+    )
+    fig.update_layout(
+        xaxis=dict(title="Dilution rate [h<sup>-1</sup>]", ticks="inside", type="log"),
+        yaxis=dict(title="Monod constant [mM]", ticks="inside", type="log"),
+        width=600,
+        height=400,
+    )
+    fig = style_plot(fig)
+    fig.write_image("plots/Km_D_contour.svg")
+    # fig.show()
+
+
+def N1C1C2_death(y, t, p):
+    N1C1, N1C2, R1C1, R1C2, CefoC1, CefoC2 = y
+    N1JC1 = p["v1_1"] * R1C1 / (R1C1 + p["K1_1"]) - p["u1_1"] * CefoC1 / (
+        CefoC1 + p["Kt1_1"]
+    )
+    N1JC2 = p["v1_1"] * R1C2 / (R1C2 + p["K1_1"]) - p["u1_1"] * CefoC2 / (
+        CefoC2 + p["Kt1_1"]
+    )
+    dCefoC1 = -(p["a1_1"] * N1C1 / p["t1_1"]) * CefoC1 + p["D"] * (p["A1"] - CefoC1)
+    dCefoC2 = -(p["a1_1"] * N1C2 / p["t1_1"]) * CefoC2 + p["D"] * (CefoC1 - CefoC2)
+    dN1C1 = N1C1 * (N1JC1 - p["D"])
+    dR1C1 = p["D"] * (p["M1"] - R1C1) - N1JC1 * N1C1 / p["q1_1"]
+    dN1C2 = p["D"] * (N1C1 - N1C2) + N1C2 * N1JC2
+    dR1C2 = p["D"] * (R1C1 - R1C2) - N1JC2 * N1C2 / p["q1_1"]
+    return dN1C1, dN1C2, dR1C1, dR1C2, dCefoC1, dCefoC2
+
+
+def plot_N1C1C2_deat():
+    p = parse_params(cfus=False)
+    xs = np.linspace(0, 200, 10000)
+    y = odeint(N1C1C2_death, [0.3, 0, 10, 0, p["A1"], 0], xs, args=(p,))
+    N1C1, N1C2, R1C1, R1C2, CefoC1, CefoC2 = y.T
+    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
+    fig.add_trace(
+        go.Scatter(x=xs, y=N1C1, mode="lines", marker=dict(color="black")), row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=xs, y=N1C2, mode="lines", marker=dict(color="black")), row=1, col=2
+    )
+    fig.update_layout(
+        xaxis=dict(title="Time", ticks="inside"),
+        yaxis=dict(
+            title="OD<sub>600</sub>",
+        ),
+        width=600,
+        height=400,
+    )
+    fig = style_plot(fig)
+    fig.write_image("plots/N1C1C2_death.svg")
+    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
+    fig.add_trace(
+        go.Scatter(x=xs, y=R1C1, mode="lines", marker=dict(color="black")), row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=xs, y=R1C2, mode="lines", marker=dict(color="black")), row=1, col=2
+    )
+    fig.update_layout(
+        xaxis=dict(title="Time", ticks="inside"),
+        yaxis=dict(
+            title="Concentration [mM]",
+        ),
+        width=600,
+        height=400,
+    )
+    fig = style_plot(fig)
+    fig.write_image("plots/R1C1C2_death.svg")
+
+    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
+    fig.add_trace(
+        go.Scatter(x=xs, y=CefoC1, mode="lines", marker=dict(color="black")),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(x=xs, y=CefoC2, mode="lines", marker=dict(color="black")),
+        row=1,
+        col=2,
+    )
+    fig.update_layout(
+        xaxis=dict(title="Time", ticks="inside"),
+        yaxis=dict(
+            title="Concentration [uM]",
+        ),
+        width=600,
+        height=400,
+    )
+    fig = style_plot(fig)
+    fig.write_image("plots/CefoC1C2_death.svg")
+
+
+def main():
+    plot_N1C1C2()
+    plot_N1N2C1C2()
+    plot_N1C1C2_cfus()
+    plot_N1O2C1C2()
+    N1C1C2_cross_feeding()

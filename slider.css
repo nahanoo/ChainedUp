@@ -1,0 +1,24 @@
+/* Make all sliders black */
+.rc-slider-track {
+    background-color: black !important;
+}
+
+.rc-slider-rail {
+    background-color: #333 !important; /* darker grey behind track */
+}
+
+.rc-slider-handle {
+    border-color: black !important;
+    background-color: black !important;
+}
+
+.rc-slider-dot,
+.rc-slider-dot-active {
+    border-color: black !important;
+    background-color: black !important;
+}
+
+.rc-slider-mark-text {
+    color: black !important;
+    font-size: 16px !important;
+}
