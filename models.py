@@ -1,450 +1,167 @@
-import numpy as np
+from page import model, parse_params
 from scipy.integrate import odeint
+import numpy as np
+from sympy import symbols, Eq, solve
 from style import *
-import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+p = parse_params("parameters_dash_init.csv")
+p["a1"] = 0.5
+p["a2"] = 0.2
+p["D"] = 0.35
+t = np.linspace(0, 200, 2000)
 
 
-def parse_params(cfus=False):
-    if cfus:
-        df = dict(pd.read_csv("parameters_cfus.csv"))
-        params = pd.Series(df["value"].values, index=df["parameter"]).to_dict()
-        p = params
-        return p
-    else:
-        df = dict(pd.read_csv("parameters.csv"))
-        params = pd.Series(df["value"].values, index=df["parameter"]).to_dict()
-        p = params
-        return p
+def mono_culture():
+    y0 = [0.1, 0.0, 1, 1, 0, 0, 0, 0]
+    N1, N2, C1, C2, U1, U2, S1, S2 = odeint(model, y0, t, args=(p,)).T
 
-
-def N1C1C2(y, t, p):
-    N1C1, N1C2, R1C1, R1C2 = y
-    N1JC1 = p["v1_1"] * R1C1 / (R1C1 + p["K1_1"])
-    N1JC2 = p["v1_1"] * R1C2 / (R1C2 + p["K1_1"])
-    dN1C1 = N1C1 * (N1JC1 - p["D"])
-    dN1C2 = N1C2 * (N1JC2 - p["D"]) + p["D"] * N1C1
-    dR1C1 = p["D"] * (p["M1"] - R1C1) - N1JC1 * N1C1 / p["q1_1"]
-    dR1C2 = p["D"] * (R1C1 - R1C2) - N1JC2 * N1C2 / p["q1_1"]
-    return [dN1C1, dN1C2, dR1C1, dR1C2]
-
-
-def N1C1C2_strategy(y, t, p):
-    N1C1, N1C2, R1C1, R1C2, M1C1, M1C2 = y
-    N1JC1 = p["v1_1"] * R1C1 / (R1C1 + p["K1_1"])
-    N1JC2 = p["v1_1"] * R1C2 / (R1C2 + p["K1_1"])
-    dN1C1 = N1C1 * (N1JC1 - p["D"])
-    dN1C2 = (
-        N1C2 * (N1JC2 - p["D"]) + p["D"] * N1C1 + p["v1_1"] * M1C2 / (M1C2 + p["K1_2"])
-    )
-    dR1C1 = p["D"] * (p["M1"] - R1C1) - N1JC1 * N1C1 / p["q1_1"]
-    dR1C2 = p["D"] * (R1C1 - R1C2) - N1JC2 * N1C2 / p["q1_1"]
-    dM1C1 = N1JC1 * N1C1 / p["a1_2"] - p["D"] * M1C1
-    dM1C2 = (
-        p["D"] * (M1C1 - M1C2)
-        - p["v1_1"] * M1C2 / (M1C2 + p["K1_2"]) * N1C2 / p["q1_2"]
-    )
-    return [dN1C1, dN1C2, dR1C1, dR1C2, dM1C1, dM1C2]
-
-
-def plot_N1C1C2():
-    p = parse_params()
-    p["M1"] = 4
-    xs = np.linspace(0, 70, 10000)
-    y0 = [0.3, 0, p["M1"], 0]
-    ys = odeint(N1C1C2, y0, xs, args=(p,))
-    N1C1, N1C2, R1C1, R1C2 = ys.T
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, N in enumerate([N1C1, N1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=N, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="OD<sub>600</sub>"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/N1C1C2.svg")
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, R in enumerate([R1C1, R1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=R, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="Concentration [mM]", type="log"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/R1C1C2.svg")
-    print("N1C1:", N1C1[-1], "N1C2:", N1C2[-1])
-    print("R1C1:", R1C1[-1], "R1C2:", R1C2[-1])
-
-
-def N1N2C1C2(y, t, p):
-    N1C1, N2C1, N1C2, N2C2, R1C1, R1C2 = y
-    N1JC1 = p["v1_1"] * R1C1 / (R1C1 + p["K1_1"])
-    N1JC2 = p["v1_1"] * R1C2 / (R1C2 + p["K1_1"])
-    N2JC1 = p["v2_1"] * R1C1 / (R1C1 + p["K2_1"])
-    N2JC2 = p["v2_1"] * R1C2 / (R1C2 + p["K2_1"])
-    dN1C1 = N1C1 * (N1JC1 - p["D"])
-    dN1C2 = N1C2 * (N1JC2 - p["D"]) + p["D"] * N1C1
-    dN2C1 = N2C1 * (N2JC1 - p["D"])
-    dN2C2 = N2C2 * (N2JC2 - p["D"]) + p["D"] * N2C1
-    dR1C1 = (
-        p["D"] * (p["M1"] - R1C1) - N1JC1 * N1C1 / p["q1_1"] - N2JC1 * N2C1 / p["q2_1"]
-    )
-    dR1C2 = p["D"] * (R1C1 - R1C2) - N1JC2 * N1C2 / p["q1_1"] - N2JC2 * N2C2 / p["q2_1"]
-    return [dN1C1, dN2C1, dN1C2, dN2C2, dR1C1, dR1C2]
-
-
-def plot_N1N2C1C2():
-    p = parse_params()
-    xs = np.linspace(0, 200, 10000)
-    y0 = [1, 1, 0, 0, 10, 0]
-    ys = odeint(N1N2C1C2, y0, xs, args=(p,))
-    N1C1, N2C1, N1C2, N2C2, R1C1, R1C2 = ys.T
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    fig.add_trace(
-        go.Scatter(x=xs, y=N1C1, mode="lines", marker=dict(color=colors["ct"])),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=N2C1, mode="lines", marker=dict(color=colors["oa"])),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=N1C2, mode="lines", marker=dict(color=colors["ct"])),
-        row=1,
-        col=2,
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=N2C2, mode="lines", marker=dict(color=colors["oa"])),
-        row=1,
-        col=2,
-    )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="OD<sub>600</sub>"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/N1N2C1C2.svg")
-
-
-def plot_N1C1C2_cfus():
-    p = parse_params(cfus=True)
-    xs = np.linspace(0, 72, 10000)
-    y0 = [50000000.0, 0, 0, 0]
-    ys = odeint(N1C1C2, y0, xs, args=(p,))
-    N1C1, N1C2, R1C1, R1C2 = ys.T
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, N in enumerate([N1C1, N1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=N, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="CFUs/mL"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/N1C1C2_cfus.svg")
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, R in enumerate([R1C1, R1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=R, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="Concentration"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/R1C1C2_cfus.svg")
-    print("N1C1:", N1C1[-1], "N1C2:", N1C2[-1])
-    print("R1C1:", R1C1[-1], "R1C2:", R1C2[-1])
-
-
-def N1O2C1C2(y, t, p):
-    N1C1, N1C2, R1C1, R1C2, OC1, OC2 = y
-    N1R1JC1 = p["v1_1"] * R1C1 / (R1C1 + p["K1_1"])
-    N1R1JC2 = p["v1_1"] * R1C2 / (R1C2 + p["K1_1"])
-    N1OJC1 = OC1 / (OC1 + p["K1_O"])
-    N1OJC2 = OC2 / (OC2 + p["K1_O"])
-    N1JC1 = N1R1JC1 * N1OJC1
-    N1JC2 = N1R1JC2 * N1OJC2
-    dN1C1 = N1C1 * (N1JC1 - p["D"])
-    dN1C2 = N1C2 * (N1JC2 - p["D"]) + p["D"] * N1C1
-    dR1C1 = p["D"] * (p["M1"] - R1C1) - N1JC1 * N1C1 / p["q1_1"]
-    dR1C2 = p["D"] * (R1C1 - R1C2) - N1JC2 * N1C2 / p["q1_1"]
-    dOC1 = p["kla_1"] * (p["osat_1"] - OC1) - N1JC1 * OC1 / p["q1_O"] - p["D"] * OC1
-    dOC2 = p["kla_1"] * (p["osat_1"] - OC2) - N1JC2 * OC2 / p["q1_O"] - p["D"] * OC2
-    return [dN1C1, dN1C2, dR1C1, dR1C2, dOC1, dOC2]
-
-
-def plot_N1O2C1C2():
-    p = parse_params()
-    xs = np.linspace(0, 200, 10000)
-    y0 = [0.1, 0, 10, 0, 8, 8]
-    ys = odeint(N1O2C1C2, y0, xs, args=(p,))
-    N1C1, N1C2, R1C1, R1C2, OC1, OC2 = ys.T
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    fig.add_trace(
-        go.Scatter(x=xs, y=N1C1, mode="lines", marker=dict(color="black")),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=N1C2, mode="lines", marker=dict(color="black")),
-        row=1,
-        col=2,
-    )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="OD<sub>600</sub>"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/N1O2C1C2.svg")
-    print("R1C1:", R1C1[-1], "R1C2:", R1C2[-1], " OC1:", OC1[-1], "OC2:", OC2[-1])
-
-    fig = go.Figure()
-
-    JR = [p["v1_1"] * R / (R + p["K1_1"]) for R in R1C1]
-    JO = [p["v1_1"] * O / (O + p["K1_O"]) for O in OC1]
-    fig.add_trace(
-        go.Scatter(
-            x=xs,
-            y=JR,
-            mode="lines",
-            marker=dict(color=colors["ct"]),
-            name="Resource<br>growth<br>rate",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=xs,
-            y=JO,
-            mode="lines",
-            marker=dict(color=colors["oa"]),
-            name="Oxygen<br>growth<br>rate",
-        )
-    )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="Growth rate"),
-        width=380 / 2,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/JRJO.svg")
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, R in enumerate([R1C1, R1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=R, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="Concentration [mM]"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/R1O2C1C2.svg")
-
-
-def N1C1C2_cross_feeding():
-    p = parse_params(cfus=True)
-    p["D"] = 0
-    xs = np.linspace(0, 200, 10000)
-    y0 = [200000, 0, 10, 0, 0, 0]
-    ys = odeint(N1C1C2_strategy, y0, xs, args=(p,))
-    N1C1, N1C2, R1C1, R1C2, M1C1, M1C2 = ys.T
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, N in enumerate([N1C1, N1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=N, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="CFUs/mL", type="log"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    # fig.show()
-    fig = style_plot(fig)
-    fig.write_image("plots/N1C1C2_cross_feeding_D" + str(p["D"]) + ".svg")
-
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    for i, R in enumerate([M1C1, M1C2]):
-        fig.add_trace(
-            go.Scatter(x=xs, y=R, mode="lines", marker=dict(color="black")),
-            row=1,
-            col=1 + i,
-        )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(title="Concentration [mM]"),
-        width=380,
-        height=200,
-        showlegend=False,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/M1C1C2_cross_feeding_D" + str(p["D"]) + ".svg")
-
-    print("N1C1:", N1C1[-1], "N1C2:", N1C2[-1])
-    print("R1C1:", R1C1[-1], "R1C2:", R1C2[-1])
-    print("M1C1:", M1C1[-1], "M1C2:", M1C2[-1])
-
-
-def plot_Km_D_contour():
-    Ds = np.linspace(0.01, 0.2, 100)
-    Kms = np.linspace(1, 50, 100)
-    r = 0.3
-    D, Km = np.meshgrid(Ds, Kms)
-    z = np.log(-D * Km / (D - r))
+    aas = np.linspace(0, 1, 100)
+    C1s, C2s = [], []
+    for a in aas:
+        p["a1"] = a
+        N1, N2, C1, C2, U1, U2, S1, S2 = odeint(model, y0, t, args=(p,)).T
+        C1s.append(C1[-1])
+        C2s.append(C2[-1])
 
     fig = go.Figure()
     fig.add_trace(
-        go.Contour(
-            z=z,
-            x=Ds,
-            y=Kms,
-            colorscale="Viridis",
-            contours=dict(showlines=False),
-            ncontours=1000,
-            colorbar=dict(
-                len=0.6, y=0.2, thickness=10, outlinewidth=0.5, outlinecolor="black"
+        go.Scatter(
+            x=C1s,
+            y=C2s,
+            mode="markers",
+            marker=dict(
+                symbol="triangle-up",
+                color=aas,
+                colorscale="viridis",
+                colorbar=dict(
+                    title="a",
+                    len=0.55,  # height as fraction of plotting area
+                    lenmode="fraction",
+                    y=0.5,
+                    yanchor="middle",
+                    thickness=14,  # width in px (optional)
+                ),
             ),
-            hovertext=["R*", np.exp(z), "mM"],
+            name="At",
+        )
+    )
+    y0 = [0.0, 0.1, 1, 1, 0, 0, 0, 0]
+    N1, N2, C1, C2, U1, U2, S1, S2 = odeint(model, y0, t, args=(p,)).T
+
+    C1s, C2s = [], []
+    for a in aas:
+        p["a2"] = a
+        N1, N2, C1, C2, U1, U2, S1, S2 = odeint(model, y0, t, args=(p,)).T
+        C1s.append(C1[-1])
+        C2s.append(C2[-1])
+
+    fig.add_trace(
+        go.Scatter(
+            x=C1s,
+            y=C2s,
+            mode="markers",
+            marker=dict(
+                color=aas,
+                colorscale="viridis",
+                showscale=False,
+            ),
+            line=dict(width=2),
+            name="Oa",
         )
     )
     fig.update_layout(
-        xaxis=dict(title="Dilution rate [h<sup>-1</sup>]", ticks="inside", type="log"),
-        yaxis=dict(title="Monod constant [mM]", ticks="inside", type="log"),
-        width=600,
-        height=400,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/Km_D_contour.svg")
-    # fig.show()
-
-
-def N1C1C2_death(y, t, p):
-    N1C1, N1C2, R1C1, R1C2, CefoC1, CefoC2 = y
-    N1JC1 = p["v1_1"] * R1C1 / (R1C1 + p["K1_1"]) - p["u1_1"] * CefoC1 / (
-        CefoC1 + p["Kt1_1"]
-    )
-    N1JC2 = p["v1_1"] * R1C2 / (R1C2 + p["K1_1"]) - p["u1_1"] * CefoC2 / (
-        CefoC2 + p["Kt1_1"]
-    )
-    dCefoC1 = -(p["a1_1"] * N1C1 / p["t1_1"]) * CefoC1 + p["D"] * (p["A1"] - CefoC1)
-    dCefoC2 = -(p["a1_1"] * N1C2 / p["t1_1"]) * CefoC2 + p["D"] * (CefoC1 - CefoC2)
-    dN1C1 = N1C1 * (N1JC1 - p["D"])
-    dR1C1 = p["D"] * (p["M1"] - R1C1) - N1JC1 * N1C1 / p["q1_1"]
-    dN1C2 = p["D"] * (N1C1 - N1C2) + N1C2 * N1JC2
-    dR1C2 = p["D"] * (R1C1 - R1C2) - N1JC2 * N1C2 / p["q1_1"]
-    return dN1C1, dN1C2, dR1C1, dR1C2, dCefoC1, dCefoC2
-
-
-def plot_N1C1C2_deat():
-    p = parse_params(cfus=False)
-    xs = np.linspace(0, 200, 10000)
-    y = odeint(N1C1C2_death, [0.3, 0, 10, 0, p["A1"], 0], xs, args=(p,))
-    N1C1, N1C2, R1C1, R1C2, CefoC1, CefoC2 = y.T
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    fig.add_trace(
-        go.Scatter(x=xs, y=N1C1, mode="lines", marker=dict(color="black")), row=1, col=1
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=N1C2, mode="lines", marker=dict(color="black")), row=1, col=2
-    )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(
-            title="OD<sub>600</sub>",
+        xaxis=dict(
+            title="Succinate [mM]",
+            # type="log"
         ),
-        width=600,
-        height=400,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/N1C1C2_death.svg")
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    fig.add_trace(
-        go.Scatter(x=xs, y=R1C1, mode="lines", marker=dict(color="black")), row=1, col=1
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=R1C2, mode="lines", marker=dict(color="black")), row=1, col=2
-    )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
         yaxis=dict(
-            title="Concentration [mM]",
+            title="Glucose [mM]",
+            # type="log"
         ),
-        width=600,
-        height=400,
+        title="Mono-culture",
     )
-    fig = style_plot(fig)
-    fig.write_image("plots/R1C1C2_death.svg")
-
-    fig = make_subplots(cols=2, rows=1, subplot_titles=["C1", "C2"], shared_yaxes=True)
-    fig.add_trace(
-        go.Scatter(x=xs, y=CefoC1, mode="lines", marker=dict(color="black")),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(x=xs, y=CefoC2, mode="lines", marker=dict(color="black")),
-        row=1,
-        col=2,
-    )
-    fig.update_layout(
-        xaxis=dict(title="Time", ticks="inside"),
-        yaxis=dict(
-            title="Concentration [uM]",
-        ),
-        width=600,
-        height=400,
-    )
-    fig = style_plot(fig)
-    fig.write_image("plots/CefoC1C2_death.svg")
+    fig = style_plot(fig, line_thickness=3, marker_size=10, font_size=15)
+    fig.show()
+    fig.write_image("plots/a_c1_c2_s1_s2.svg")
 
 
-def main():
-    plot_N1C1C2()
-    plot_N1N2C1C2()
-    plot_N1C1C2_cfus()
-    plot_N1O2C1C2()
-    N1C1C2_cross_feeding()
+p = parse_params("parameters_dash_init.csv")
+y0 = [0.1, 0.1, 1, 1, 0, 0, 0, 0]
+t = np.linspace(0, 2000, 20000)
+a1_vals = np.linspace(0.0, 1.0, 100)
+a2_vals = np.linspace(0.0, 1.0, 100)
+
+
+def simulate_tail_means(a1, a2, p_base):
+    p = dict(p_base)
+    p["a1"] = float(a1)
+    p["a2"] = float(a2)
+    N1, N2, C1, C2, U1, U2, S1, S2 = odeint(model, y0, t, args=(p,), mxstep=5000).T
+    i0 = int(0.95 * len(t))  # last 5%
+    return (N1[i0:].mean(), N2[i0:].mean(), C1[i0:].mean(), C2[i0:].mean())
+
+
+# Sweep
+Z_C1 = np.empty((len(a2_vals), len(a1_vals)))
+Z_C2 = np.empty((len(a2_vals), len(a1_vals)))
+Z_N1 = np.empty_like(Z_C1)
+Z_N2 = np.empty_like(Z_C1)
+
+for i, a2 in enumerate(a2_vals):
+    for j, a1 in enumerate(a1_vals):
+        N1m, N2m, C1m, C2m = simulate_tail_means(a1, a2, p)
+        Z_N1[i, j], Z_N2[i, j] = N1m, N2m
+        Z_C1[i, j], Z_C2[i, j] = C1m, C2m
+
+# Coexistence mask (tolerance relative to initial biomass)
+tol = 1e-4  # adjust to your scale; e.g., 1% of initial -> 0.001 if y0 ~ 0.1
+coexist = (Z_N1 > tol) & (Z_N2 > tol)
+
+# Your ratio plot
+fig = go.Figure()
+fig.add_trace(
+    go.Contour(
+        z=Z_C1 / (Z_C1 + Z_C2),
+        x=a1_vals,
+        y=a2_vals,
+        contours=dict(showlines=False),
+        colorscale="Viridis",
+        zmin=0,
+        zmax=1,
+        ncontours=50,
+        zauto=False,
+        colorbar=dict(title="C1 / (C1 + C2)", len=0.6, y=0.2, thickness=12),
+        name="C1 ratio",
+    )
+)
+
+# Overlay isolines where each species crosses the persistence threshold
+fig.add_trace(
+    go.Contour(
+        z=Z_N1,
+        x=a1_vals,
+        y=a2_vals,
+        colorscale=[[0, "rgba(0,0,0,1)"], [1, "rgba(0,0,0,1)"]],  # invisible
+        contours=dict(start=tol, end=tol, coloring="lines"),
+        showscale=False,
+    )
+)
+fig.add_trace(
+    go.Contour(
+        z=Z_N2,
+        x=a1_vals,
+        y=a2_vals,
+        colorscale=[[0, "rgba(0,0,0,1)"], [1, "rgba(0,0,0,1)"]],  # invisible
+        contours=dict(start=tol, end=tol, coloring="lines"),
+        showscale=False,
+    )
+)
+
+fig.update_layout(
+    xaxis=dict(title="a1", ticks="inside"),
+    yaxis=dict(title="a2", ticks="inside"),
+    title="Steady-state succinate-glucose ratio",
+)
+fig = style_plot(fig, line_thickness=1.5, font_size=15)
+fig.write_image("plots/a1_a2_c2_ss.svg")
