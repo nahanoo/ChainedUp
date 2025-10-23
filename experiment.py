@@ -15,17 +15,17 @@ class Species:
         self.K_gluc = float(row["K_gluc"])
         self.q_succ = float(row["q_succ"])
         self.q_gluc = float(row["q_gluc"])
-        self.t_lag = float(row["t_lag"])
+        self.lag_succ = float(row["lag_succ"])
+        self.lag_succ_width = float(row["lag_succ_width"])
+        self.lag_gluc = float(row["lag_gluc"])
+        self.lag_gluc_width = float(row["lag_gluc_width"])
         self.a = float(row["a"])
         self.N0 = float(row["N0"])
-        self.lag = self.t_lag
         self.y = None
 
 
 class Condition:
-    def __init__(
-        self, species, carbon_source, cs_conc, signal, linegroups, data, species_df
-    ):
+    def __init__(self, species, carbon_source, cs_conc, signal, linegroups, data):
         self.species_names = list(species)
         self.species = []
         self.carbon_source = carbon_source
@@ -35,10 +35,6 @@ class Condition:
 
         self.xs = [data[f"{lg}_time"].to_numpy() for lg in self.linegroups]
         self.ys = [data[f"{lg}_measurement"].to_numpy() for lg in self.linegroups]
-
-        for s in self.species_names:
-            row = species_df.loc[s]
-            self.species.append(Species(s, row))
 
     def filter_time(self, cut_off: float):
         new_xs, new_ys = [], []
@@ -51,14 +47,15 @@ class Condition:
     def plot_condition(self):
 
         fig = go.Figure()
-        for x, y in zip(self.xs, self.ys):
+        for i, (x, y) in enumerate(zip(self.xs, self.ys)):
             fig.add_trace(
                 go.Scatter(
                     x=x,
                     y=y,
                     mode="lines",
-                    line=dict(width=1, color="purple"),
-                    showlegend=False,
+                    line=dict(width=1, color="gray"),
+                    name="Data",
+                    showlegend=(True if i == 0 else False),
                 )
             )
         ylabels = {"OD": "OD600", "gfp": "GFP (a.u.)", "mcherry": "mCherry (a.u.)"}
@@ -74,23 +71,13 @@ class Condition:
 
 
 class Experiment:
-    def __init__(
-        self,
-        d,
-        species_param_path="parameters/parameters_species_fitting.csv",
-        exp_param_path="parameters/parameters_experiment_fitting.csv",
-    ):
-        self.meta = pd.read_csv(path.join(d, "metadata.csv"))
-        self.data = pd.read_csv(path.join(d, "measurements.csv"), index_col=0)
-        self.species_df = pd.read_csv(species_param_path, index_col=0)
-
-        exp_df = pd.read_csv(exp_param_path)
-        self.D = float(exp_df["D"][0])
-        self.M_succinate = float(exp_df["succinate"][0])
-        self.M_glucose = float(exp_df["glucose"][0])
+    def __init__(self, d=False):
 
         self.conditions = []
-        self.build_conditions()
+        if d:
+            self.meta = pd.read_csv(path.join(d, "metadata.csv"))
+            self.data = pd.read_csv(path.join(d, "measurements.csv"), index_col=0)
+            self.build_conditions()
 
     def build_conditions(self):
         m = self.meta.copy()
@@ -115,7 +102,12 @@ class Experiment:
                 lgs = sorted(g["linegroup"].dropna().unique().tolist())
                 self.conditions.append(
                     Condition(
-                        species_list, cs, conc, signal, lgs, self.data, self.species_df
+                        species_list,
+                        cs,
+                        conc,
+                        signal,
+                        lgs,
+                        self.data,
                     )
                 )
 
