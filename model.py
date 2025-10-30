@@ -12,10 +12,6 @@ class Model:
         self.t = t
         self.C_mono = C_mono
         self.D = D
-        self.M_succinate = self.C_to_mM_succinate[self.C_mono]
-        self.M_glucose = self.C_to_mM_glucose[self.C_mono]
-        self.glucose = None
-        self.succinate = None
 
         self.C_to_mM_succinate = {
             45: 11.25,
@@ -41,6 +37,11 @@ class Model:
             10: [1.25, 0.833],
             5: [0.625, 0.417],
         }
+
+        self.M_succinate = self.C_to_mM_succinate[self.C_mono]
+        self.M_glucose = self.C_to_mM_glucose[self.C_mono]
+        self.glucose = None
+        self.succinate = None
 
     def simulate(self, y, t):
         at, oa, g, s = y
