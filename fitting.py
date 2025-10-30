@@ -1,261 +1,393 @@
+from experiment import Species, Experiment
+from os import path
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from os import path
 from style import *
 from scipy.integrate import odeint
-
-d = "data/251018_succinate_glucose_plate_reader/metaod"
-
-
-def parse_meta_od(dir):
-    return pd.read_csv(path.join(dir, "metadata.csv")), pd.read_csv(
-        path.join(dir, "measurements.csv"),
-        index_col=0,
-    )
-
-
-class Condition:
-    def __init__(self, species, carbon_source, cs_conc, signal, linegroups, data):
-        self.species_names = species
-        self.carbon_source = carbon_source
-        self.concentration = cs_conc
-        self.linegroups = linegroups
-        self.signal = signal
-        self.ys = []
-        self.xs = []
-        for lg in self.linegroups:
-            x = data[lg + "_time"].to_numpy()
-            y = data[lg + "_measurement"].to_numpy()
-            self.xs.append(x)
-            self.ys.append(y)
-        self.y_average = np.mean(self.ys, axis=0)
-
-    def filter_time(self, cut_off):
-        filtered_xs = []
-        filtered_ys = []
-        for x, y in zip(self.xs, self.ys):
-            mask = x <= cut_off
-            filtered_xs.append(x[mask])
-            filtered_ys.append(y[mask])
-        self.xs = filtered_xs
-        self.ys = filtered_ys
-
-    def plot_condition(self):
-        fname = f"{'+'.join(self.species_names)}_{self.carbon_source}_{self.concentration}mM_{self.signal}.svg"
-        fig = go.Figure()
-        for x, y in zip(self.xs, self.ys):
-            fig.add_trace(
-                go.Scatter(
-                    x=x,
-                    y=y,
-                    mode="lines",
-                    line=dict(width=1, color="purple"),
-                    showlegend=False,
-                )
-            )
-        fig.update_layout(
-            title=f"{'+'.join(self.species_names)} - {self.carbon_source} {self.concentration} mM",
-            xaxis_title="Time (hours)",
-            yaxis_title=self.signal,  # <- was "OD"
-            width=600,
-            height=400,
-        )
-        fig = style_plot(fig, font_size=14, line_thickness=2)
-        return fig, fname
-
-
-class Species:
-    def __init__(self, name):
-        self.name = name
-        self.v_succ = None
-        self.v_gluc = None
-        self.K_succ = None
-        self.K_gluc = None
-        self.q_succ = None
-        self.q_gluc = None
-        self.t_lag = None
-        self.a = None
-        self.N0 = None
-        self.y = None
-
-
-import numpy as np
-import pandas as pd
-from scipy.integrate import odeint
 import plotly.graph_objects as go
 
-EPS = 1e-12
 
+class Model:
+    def __init__(self, at, oa, e, t, C_mono, D):
+        self.at = at
+        self.oa = oa
+        self.e = e
+        self.t = t
+        self.C_mono = C_mono
+        self.D = D
 
-class Fitting:
-    def __init__(self, condition):
-        self.condition = condition
-        self.species = []
+        self.C_to_mM_succinate = {
+            45: 11.25,
+            30: 7.5,
+            15: 3.75,
+            7.5: 1.875,
+            5: 1.25,
+            2.5: 0.625,
+        }
+        self.C_to_mM_glucose = {
+            45: 7.5,
+            30: 5,
+            15: 2.5,
+            7.5: 1.25,
+            5: 0.833,
+            2.5: 0.417,
+        }
+        self.C_to_mM_glucose_succinate = {
+            90: [11.25, 7.5],
+            60: [7.5, 5],
+            30: [3.75, 2.5],
+            15: [1.875, 1.25],
+            10: [1.25, 0.833],
+            5: [0.625, 0.417],
+        }
+        self.C_mono = C_mono
+        self.M_succinate = self.C_to_mM_succinate[self.C_mono]
+        self.M_glucose = self.C_to_mM_glucose[self.C_mono]
         self.glucose = None
         self.succinate = None
-        # average time grid (assumes aligned replicates)
-        self.x = np.mean(self.condition.xs, axis=0)
+        self.D = D
 
-        # --- species params ---
-        df = pd.read_csv("parameters_species_fitting.csv", index_col=0)
-        for species_name in condition.species_names:
-            self.species.append(Species(species_name))
+    def lag_time(self, t, t_lag, lag_width, *, min_width=1e-6, clip=50.0, frac=0.95):
 
-        for sp in self.species:
-            p = df.loc[sp.name]
-            sp.v_succ = float(p["v_succ"])
-            sp.v_gluc = float(p["v_gluc"])
-            sp.K_succ = float(p["K_succ"])
-            sp.K_gluc = float(p["K_gluc"])
-            sp.q_succ = float(p["q_succ"])
-            sp.q_gluc = float(p["q_gluc"])
-            sp.a = float(p["a"])
-            sp.N0 = float(p["N0"])
-            # NEW (Option B): acclimation timescale and initial activity
-            sp.t_lag = float(p["lag"])
-            sp.E0 = float(p["E0"]) if "E0" in p.index else 0.0
+        # Handle trivial "no lag" case; keep broadcasting behavior
+        if t_lag <= 0:
+            return np.ones_like(t, dtype=float) if np.ndim(t) else 1.0
 
-        # --- experiment / medium params ---
-        df = pd.read_csv("parameters_experiment_fitting.csv")
-        self.D = float(df["D"][0])
-        self.M_succinate = float(df["succinate"][0])
-        self.M_glucose = float(df["glucose"][0])
+        # Left width and (steep) right width
+        wl = max(float(lag_width), float(min_width))
+        right_frac = float(getattr(self, "lag_right_frac", frac))  # tune if needed
+        wr = max(wl * max(right_frac, 0.0), float(min_width))
 
-    # ---------- ORIGINAL (no lag) ----------
-    def mac_arthur_mono_culture(self, y, t):
-        sp = self.species[0]
-        N, S, G = y
+        C_10_90 = 4.39444872453601  # 2*ln(9)
+        k_left = C_10_90 / wl
+        k_right = C_10_90 / wr
 
-        # per-resource fluxes (no acclimation)
-        J_S = sp.a * sp.v_succ * S / (sp.K_succ + S + EPS)
-        J_G = (1.0 - sp.a) * sp.v_gluc * G / (sp.K_gluc + G + EPS)
-        J = J_S + J_G
+        x = np.asarray(t, dtype=float) - float(t_lag)
 
-        dSdt = -(J_S * N) / sp.q_succ + self.D * (self.M_succinate - S)
-        dGdt = -(J_G * N) / sp.q_gluc + self.D * (self.M_glucose - G)
-        dNdt = (J * N) - self.D * N
-        return [dNdt, dSdt, dGdt]
+        # piecewise logistic with separate slopes, clipped for stability
+        phi = np.empty_like(x, dtype=float)
+        mask_left = x < 0
+        if np.any(mask_left):
+            xL = np.clip(k_left * x[mask_left], -clip, 0.0)
+            phi[mask_left] = 1.0 / (1.0 + np.exp(-xL))
+        if np.any(~mask_left):
+            xR = np.clip(k_right * x[~mask_left], 0.0, clip)
+            phi[~mask_left] = 1.0 / (1.0 + np.exp(-xR))
 
-    def integrate_mac_arthur_mono_culture(self):
-        y0 = [self.species[0].N0, self.M_succinate, self.M_glucose]
-        N, S, G = odeint(self.mac_arthur_mono_culture, y0, self.x).T
-        self.species[0].y = N
-        self.succinate, self.glucose = S, G
+        # Return scalar if scalar input
+        return phi if np.ndim(t) else float(phi)
 
-        fig = self.condition.plot_condition()[0]
-        fig.add_trace(
-            go.Scatter(
-                x=self.x,
-                y=N,
-                mode="lines",
-                line=dict(width=2, color="red"),
-                name="Fitted Model",
-            )
-        )
-        return fig
-
-    # ---------- OPTION B: acclimation state E ----------
-    def mac_arthur_mono_culture_lag(self, y, t):
-        sp = self.species[0]
-        N, S, G = y
-
-        FIXED_WIDTH = 1  # hours; change once here if needed
-        k = 4.394 / FIXED_WIDTH  # 10–90% rise time mapping
-        phi = 1.0 / (1.0 + np.exp(-k * (t - sp.t_lag)))
-
+    def mac_arthur_lag(self, y, t):
         EPS = 1e-12
-        J_S = phi * sp.a * sp.v_succ * S / (sp.K_succ + S + EPS)
-        J_G = phi * (1.0 - sp.a) * sp.v_gluc * G / (sp.K_gluc + G + EPS)
-        J = J_S + J_G
+        at, oa, g, s = y
 
-        dSdt = -(J_S * N) / sp.q_succ + self.D * (self.M_succinate - S)
-        dGdt = -(J_G * N) / sp.q_gluc + self.D * (self.M_glucose - G)
-        dNdt = (J * N) - self.D * N
-        return [dNdt, dSdt, dGdt]
+        # Enforce non-negativity in the kinetics
+        g_eff = 0.0 if g <= 0.0 else g
+        s_eff = 0.0 if s <= 0.0 else s
 
-    def integrate_mac_arthur_mono_culture_lag(self):
-        sp = self.species[0]
-        y0 = [sp.N0, self.M_succinate, self.M_glucose]
-        N, S, G = odeint(self.mac_arthur_mono_culture_lag, y0, self.x).T
-        sp.y = N
-        self.succinate, self.glucose = S, G
-
-        fig = self.condition.plot_condition()[0]
-        fig.add_trace(
-            go.Scatter(
-                x=self.x,
-                y=N,
-                mode="lines",
-                line=dict(width=2, color="red"),
-                name="Fitted Model (lag)",
-            )
+        # ON/OFF gates (as you had)
+        phi_S_at = (
+            1
+            if self.at.lag_succ == 0
+            else self.lag_time(t, self.at.lag_succ, self.at.lag_succ_width, frac=0.95)
         )
+        phi_G_at = (
+            1
+            if self.at.lag_gluc == 0
+            else self.lag_time(t, self.at.lag_gluc, self.at.lag_gluc_width, frac=0.05)
+        )
+        phi_G_oa = (
+            1
+            if self.oa.lag_gluc == 0
+            else self.lag_time(t, self.oa.lag_gluc, self.oa.lag_gluc_width)
+        )
+        phi_S_oa = (
+            1
+            if self.oa.lag_succ == 0
+            else self.lag_time(t, self.oa.lag_succ, self.oa.lag_succ_width)
+        )
+
+        # Uptake fluxes use clamped resources
+        J_S_at = (
+            phi_S_at
+            * self.at.a
+            * self.at.v_succ_lag
+            * s_eff
+            / (self.at.K_succ + s_eff + EPS)
+        )
+        J_G_at = (
+            phi_G_at
+            * (1.0 - self.at.a)
+            * self.at.v_gluc_lag
+            * g_eff
+            / (self.at.K_gluc + g_eff + EPS)
+        )
+        J_S_oa = (
+            phi_S_oa
+            * self.oa.a
+            * self.oa.v_succ_lag
+            * s_eff
+            / (self.oa.K_succ + s_eff + EPS)
+        )
+        J_G_oa = (
+            phi_G_oa
+            * (1.0 - self.oa.a)
+            * self.oa.v_gluc_lag
+            * g_eff
+            / (self.oa.K_gluc + g_eff + EPS)
+        )
+
+        J_at = J_S_at + J_G_at
+        J_oa = J_S_oa + J_G_oa
+
+        # D may be zero in batch; keep form general
+        datdt = at * (J_at - self.D)
+        doadt = oa * (J_oa - self.D)
+
+        dgdt = self.D * (self.M_glucose - g_eff) - (
+            J_G_at * at / self.at.q_gluc + J_G_oa * oa / self.oa.q_gluc
+        )
+        dsdt = self.D * (self.M_succinate - s_eff) - (
+            J_S_at * at / self.at.q_succ + J_S_oa * oa / self.oa.q_succ
+        )
+
+        return [datdt, doadt, dgdt, dsdt]
+
+    def calculate_lag(self):
+        t = self.t
+        at_phi_succ = np.array(
+            [
+                self.lag_time(ti, self.at.lag_succ, self.at.lag_succ_width, frac=0.05)
+                for ti in t
+            ]
+        )
+        at_phi_gluc = np.array(
+            [
+                self.lag_time(ti, self.at.lag_gluc, self.at.lag_gluc_width, frac=0.05)
+                for ti in t
+            ]
+        )
+        oa_phi_succ = np.array(
+            [self.lag_time(ti, self.oa.lag_succ, self.oa.lag_succ_width) for ti in t]
+        )
+        oa_phi_gluc = np.array(
+            [self.lag_time(ti, self.oa.lag_gluc, self.oa.lag_gluc_width) for ti in t]
+        )
+        self.at.phi_succ = at_phi_succ
+        self.at.phi_gluc = at_phi_gluc
+        self.oa.phi_succ = oa_phi_succ
+        self.oa.phi_gluc = oa_phi_gluc
+
+    def get_parameters(self):
+
+        phi_S_at = (
+            1
+            if self.at.lag_succ == 0
+            else self.lag_time(self.t, self.at.lag_succ, self.at.lag_succ_width)
+        )
+        phi_G_at = (
+            1
+            if self.at.lag_gluc == 0
+            else self.lag_time(self.t, self.at.lag_gluc, self.at.lag_gluc_width)
+        )
+        phi_G_oa = (
+            1
+            if self.oa.lag_gluc == 0
+            else self.lag_time(self.t, self.oa.lag_gluc, self.oa.lag_gluc_width)
+        )
+        phi_S_oa = (
+            1
+            if self.oa.lag_succ == 0
+            else self.lag_time(self.t, self.oa.lag_succ, self.oa.lag_succ_width)
+        )
+        J_S_at = (
+            phi_S_at
+            * self.at.a
+            * self.at.v_succ_lag
+            * self.succinate
+            / (self.at.K_succ + self.succinate)
+        )
+        J_G_at = (
+            phi_G_at
+            * (1.0 - self.at.a)
+            * self.at.v_gluc_lag
+            * self.glucose
+            / (self.at.K_gluc + self.glucose)
+        )
+
+        J_S_oa = (
+            phi_S_oa
+            * self.oa.a
+            * self.oa.v_succ_lag
+            * self.succinate
+            / (self.oa.K_succ + self.succinate)
+        )
+        J_G_oa = (
+            phi_G_oa
+            * (1.0 - self.oa.a)
+            * self.oa.v_gluc_lag
+            * self.glucose
+            / (self.oa.K_gluc + self.glucose)
+        )
+        self.at.v_succ = np.max(J_S_at)
+        self.at.v_gluc = np.max(J_G_at)
+        self.oa.v_succ = np.max(J_S_oa)
+        self.oa.v_gluc = np.max(J_G_oa)
+
+    def integrate_mac_arthur(self):
+        y0 = self.at.N0, self.oa.N0, self.M_glucose, self.M_succinate
+        self.at.y, self.oa.y, self.glucose, self.succinate = odeint(
+            self.mac_arthur_lag, y0, self.t
+        ).T
+
+    def plot_at_oa(self, fig=False):
+        if not fig:
+            fig = go.Figure()
+        species = []
+        if self.at.y[0] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.t,
+                    y=self.at.y,
+                    mode="lines",
+                    line=dict(width=2, color="green"),
+                    name="Model At",
+                )
+            )
+            species.append("At")
+        if self.oa.y[0] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.t,
+                    y=self.oa.y,
+                    mode="lines",
+                    line=dict(width=2, color="red"),
+                    name="Model Oa",
+                )
+            )
+            species.append("Oa")
+        if self.oa.y[0] != 0 and self.at.y[0] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.t,
+                    y=self.at.y + self.oa.y,
+                    mode="lines",
+                    line=dict(width=2, color="purple"),
+                    name="Model Total",
+                )
+            )
+        title = f"{' + '.join(species)} - {self.M_glucose} mM Glucose, {self.M_succinate} mM Succinate"
+        if not fig:
+            fig.update_layout(
+                title=title,
+                xaxis_title="Time (hours)",
+                yaxis_title="OD600",
+                width=600,
+                height=400,
+            )
+            fig = style_plot(fig, font_size=14, line_thickness=2)
         return fig
 
 
-def initialize_conditions(d):
-    conditions = []
-    meta, data = parse_meta_od(d)
-
-    m = meta.copy()
-    for col in ["exp_ID", "species", "carbon_source"]:
-        m[col] = m[col].astype(str)
-
-    required = ["exp_ID", "species", "carbon_source", "cs_conc", "linegroup"]
-    m = m.dropna(subset=required)
-
-    for (species, cs, conc), df in m.groupby(
-        ["species", "carbon_source", "cs_conc"], dropna=False
-    ):
-        species_list = species.split("+") if "+" in species else [species]
-
-        # Within each condition, build one Condition per experiment
-        for experiment, g in df.groupby("exp_ID"):
-            exp_l = str(experiment).lower()
-            if exp_l.endswith("mcherry"):
-                signal = "mcherry"
-            elif exp_l.endswith("gfp"):
-                signal = "gfp"
-            else:
-                signal = "OD"
-
-            lgs = sorted(g["linegroup"].dropna().unique().tolist())
-            conditions.append(Condition(species_list, cs, conc, signal, lgs, data))
-
-    return conditions
+e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
+concentrations = [2.5, 5, 7.5, 15]
+carbon_sources = ["Succinate", "Glucose"]
 
 
-_conditions_cache = None
+def simulate_growth_curves():
+    for conc in concentrations:
+        # load parameter file once per concentration
+        p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+        params = pd.read_csv(p_f, index_col=0)
+
+        for cs in carbon_sources:
+            a_pref = 1.0 if cs == "Succinate" else 0.0
+
+            for focal in ("Oa", "At"):
+                # build fresh species objects from table
+                at = Species("At", params.loc["At"])
+                oa = Species("Oa", params.loc["Oa"])
+
+                # monoculture: zero the non-focal initial biomass
+                if focal == "At":
+                    oa.N0 = 0.0
+                    at.a = a_pref
+                else:
+                    at.N0 = 0.0
+                    oa.a = a_pref
+
+                cond = e.get_condition([focal], cs, conc, "OD")
+                if cond is None:
+                    print(f"[WARN] Condition not found: {focal}, {cs}, {conc} mM, OD")
+                    continue
+
+                cond.filter_time(30)
+                fig = cond.plot_condition()
+                # integrate model on this condition's time grid
+                tgrid = np.linspace(0, cond.xs[0][-1], 10000)
+                M = Model(at, oa, e, tgrid, conc, 0)
+                M.integrate_mac_arthur()
+                M.plot_at_oa(fig)
+                M.calculate_lag()
+                M.get_parameters()
+                sp = at if focal == "At" else oa
+                lag_period = sp.phi_gluc if cs == "Glucose" else sp.phi_succ
+
+                for i, p in enumerate(lag_period):
+                    if p >= 0.95:
+                        break
+                fig.add_vrect(
+                    x0=0,
+                    x1=tgrid[i],
+                    fillcolor="lightgray",
+                    opacity=0.5,
+                    line_width=0,
+                    annotation_text="Lag period",  # your label
+                    annotation_position="top",  # ⟵ centered inside the band
+                )
+
+                # print(sp.v_gluc)
+                if cs == "Succinate":
+                    mu_val, K_val = sp.v_succ, sp.K_succ
+                else:
+                    mu_val, K_val = sp.v_gluc, sp.K_gluc
+                C_to_mM = M.C_to_mM_glucose if cs == "Glucose" else M.C_to_mM_succinate
+                title = f"{focal} on {cs} {C_to_mM[conc]:g} mM — μ: {mu_val:g} 1/h   K: {K_val:g} mM"
+                fig.update_layout(title=title)
+                fig = style_plot(fig, font_size=14, line_thickness=2)
+
+                safe_conc = f"{conc:g}".replace(".", "_")
+                outfile = path.join(
+                    "plots",
+                    "fitting",
+                    f"{focal.lower()}_{safe_conc}_mM_{cs.lower()}.svg",
+                )
+                fig.write_image(outfile)
 
 
-def all_conditions(d):
-    global _conditions_cache
-    if _conditions_cache is None:
-        _conditions_cache = initialize_conditions(d)
-    return _conditions_cache
-
-
-def get_condition(species, carbon_source, cs_conc, signal):
-    for c in all_conditions(d):
-        if (
-            c.species_names == species
-            and c.carbon_source == carbon_source
-            and c.concentration == cs_conc
-            and c.signal == signal
-        ):
-            return c
-
-
-c = get_condition(["At"], "Succinate", 15, "OD")
-c.filter_time(27.0)
-F = Fitting(c)
-fig = F.integrate_mac_arthur_mono_culture_lag()
-# Glucose
-# Oa	0.6	0.45	0.4	0.01	0.024	0.018	0			0.005	18
-# At	0.28	1.1	0.5	0.01	0.06	0.058	0			0.007	10 with FIXED_WIDTH=10
-
-fig.write_image("plots/fitting/plot.svg")
-
-# Succinate
-# At	0.32	1.1	0.5	0.01	0.03	0.058	1			0.007	2
+e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
+concentrations = [2.5, 5, 7.5, 15]
+carbon_sources = ["Succinate", "Glucose"]
+species = ["At", "Oa"]
+for cs in carbon_sources:
+    for conc in concentrations:
+        p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+        params = pd.read_csv(p_f, index_col=0)
+        for cs in carbon_sources:
+            a_pref = 1.0 if cs == "Succinate" else 0.0
+            at = Species("At", params.loc["At"])
+            oa = Species("Oa", params.loc["Oa"])
+            at.a, oa.a = (1, 1) if cs == "Succinate" else (0, 0)
+            at.N0, oa.N0 = at.N0 / 2, oa.N0 / 2  # halve initial biomass for co-culture
+            c = e.get_condition(["At", "Oa"], cs, conc, "OD")
+            c.filter_time(27)
+            fig = c.plot_condition()
+            tgrid = np.linspace(0, c.xs[0][-1], 500)
+            M = Model(at, oa, e, tgrid, conc, 0)
+            M.integrate_mac_arthur()
+            M.plot_at_oa(fig)
+            M.calculate_lag()
+            M.get_parameters()
+            fig.write_image(
+                f"plots/fitting/{at.name.lower()}_{oa.name.lower()}_{conc}_mM_{cs.lower()}_fit.svg"
+            )
