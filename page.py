@@ -9,17 +9,14 @@ from model import Model
 from experiment import Species
 from os import path
 
-
+conc = 15
 p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
 params = pd.read_csv(p_f, index_col=0)
 at = Species("At", params.loc["At"])
 oa = Species("Oa", params.loc["Oa"])
-
-
-# --- Initialize parameters once ---
-p_init = parse_params("parameters/parameters_dash_init.csv")
-
-
+global D
+D = 0.1
+M = Model(at, oa, None, np.linspace(0, 200, 500), conc, D)
 # --- Dash app ---
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -31,46 +28,22 @@ app.layout = dbc.Container(
         # parameter controls
         dbc.Row(
             [
-                dbc.Col(html.Span("v"), width=2),
+                dbc.Col(html.Span("μ Succinate"), width=2),
                 dbc.Col(
                     dcc.Input(
-                        id="p_v1",
+                        id="μ_at_succ",
                         type="number",
-                        value=p_init["v1"],
+                        value=at.v_succ,
                         style={"width": "80px"},
                     ),
                     width=2,
                 ),
-                dbc.Col(html.Span("v"), width=2),
+                dbc.Col(html.Span("μ Succinate"), width=2),
                 dbc.Col(
                     dcc.Input(
-                        id="p_v2",
+                        id="μ_oa_succ",
                         type="number",
-                        value=p_init["v2"],
-                        style={"width": "80px"},
-                    ),
-                    width=2,
-                ),
-            ]
-        ),
-        dbc.Row(
-            [
-                dbc.Col(html.Span("K Resource A"), width=2),
-                dbc.Col(
-                    dcc.Input(
-                        id="p_K1_1",
-                        type="number",
-                        value=p_init["K1_1"],
-                        style={"width": "80px"},
-                    ),
-                    width=2,
-                ),
-                dbc.Col(html.Span("K Resource A"), width=2),
-                dbc.Col(
-                    dcc.Input(
-                        id="p_K2_1",
-                        type="number",
-                        value=p_init["K2_1"],
+                        value=oa.v_succ,
                         style={"width": "80px"},
                     ),
                     width=2,
@@ -79,22 +52,70 @@ app.layout = dbc.Container(
         ),
         dbc.Row(
             [
-                dbc.Col(html.Span("K Resource B"), width=2),
+                dbc.Col(html.Span("μ Glucose"), width=2),
                 dbc.Col(
                     dcc.Input(
-                        id="p_K1_2",
+                        id="μ_at_gluc",
                         type="number",
-                        value=p_init["K1_2"],
+                        value=at.v_gluc,
                         style={"width": "80px"},
                     ),
                     width=2,
                 ),
-                dbc.Col(html.Span("K Resource B"), width=2),
+                dbc.Col(html.Span("μ Glucose"), width=2),
                 dbc.Col(
                     dcc.Input(
-                        id="p_K2_2",
+                        id="μ_oa_gluc",
                         type="number",
-                        value=p_init["K2_2"],
+                        value=oa.v_gluc,
+                        style={"width": "80px"},
+                    ),
+                    width=2,
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(html.Span("K Succinate"), width=2),
+                dbc.Col(
+                    dcc.Input(
+                        id="at_K_succ",
+                        type="number",
+                        value=at.K_succ,
+                        style={"width": "80px"},
+                    ),
+                    width=2,
+                ),
+                dbc.Col(html.Span("K Succinate"), width=2),
+                dbc.Col(
+                    dcc.Input(
+                        id="oa_K_succ",
+                        type="number",
+                        value=oa.K_succ,
+                        style={"width": "80px"},
+                    ),
+                    width=2,
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(html.Span("K Glucose"), width=2),
+                dbc.Col(
+                    dcc.Input(
+                        id="at_K_gluc",
+                        type="number",
+                        value=at.K_gluc,
+                        style={"width": "80px"},
+                    ),
+                    width=2,
+                ),
+                dbc.Col(html.Span("K Glucose"), width=2),
+                dbc.Col(
+                    dcc.Input(
+                        id="oa_K_gluc",
+                        type="number",
+                        value=oa.K_gluc,
                         style={"width": "80px"},
                     ),
                     width=2,
@@ -106,9 +127,9 @@ app.layout = dbc.Container(
                 dbc.Col(html.Span("Resource preference"), width=2),
                 dbc.Col(
                     dcc.Input(
-                        id="p_a1",
+                        id="at_a",
                         type="number",
-                        value=p_init["a1"],
+                        value=at.a,
                         style={"width": "80px"},
                     ),
                     width=2,
@@ -116,9 +137,23 @@ app.layout = dbc.Container(
                 dbc.Col(html.Span("Resource preference"), width=2),
                 dbc.Col(
                     dcc.Input(
-                        id="p_a2",
+                        id="oa_a",
                         type="number",
-                        value=p_init["a2"],
+                        value=oa.a,
+                        style={"width": "80px"},
+                    ),
+                    width=2,
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(html.Span("Dilution rate"), width=2),
+                dbc.Col(
+                    dcc.Input(
+                        id="D",
+                        type="number",
+                        value=D,
                         style={"width": "80px"},
                     ),
                     width=2,
@@ -163,37 +198,118 @@ app.layout = dbc.Container(
     Output("oa_glucose", "figure"),
     Output("at_oa_glucose", "figure"),
     Output("at_succinate+glucose", "figure"),
-    Output("at_succinate+glucose_chain", "figure"),
     Output("oa_succinate+glucose", "figure"),
-    Output("oa_succinate+glucose_chain", "figure"),
     Output("at_oa_succinate+glucose", "figure"),
-    Output("at_oa_succinate+glucose_chain", "figure"),
-    Input("p_v1", "value"),
-    Input("p_v2", "value"),
-    Input("p_K1_1", "value"),
-    Input("p_K2_1", "value"),
-    Input("p_K1_2", "value"),
-    Input("p_K2_2", "value"),
-    Input("p_a1", "value"),
-    Input("p_a2", "value"),
+    Input("μ_at_succ", "value"),
+    Input("μ_at_gluc", "value"),
+    Input("μ_oa_succ", "value"),
+    Input("μ_oa_gluc", "value"),
+    Input("at_K_succ", "value"),
+    Input("at_K_gluc", "value"),
+    Input("oa_K_succ", "value"),
+    Input("oa_K_gluc", "value"),
+    Input("at_a", "value"),
+    Input("oa_a", "value"),
+    Input("D", "value"),
 )
-def update_figures(v1, v2, K1_1, K2_1, K1_2, K2_2, a1, a2):
-    # start from the initial parameter dictionary
-    base = p_init.copy()
-    base.update(
-        {
-            "v1": v1,
-            "v2": v2,
-            "K1_1": K1_1,
-            "K2_1": K2_1,
-            "K1_2": K1_2,
-            "K2_2": K2_2,
-            "a1": a1,
-            "a2": a2,
-        }
-    )
+def update_figures(
+    μ_at_succ,
+    μ_at_gluc,
+    μ_oa_succ,
+    μ_oa_gluc,
+    at_K_succ,
+    at_K_gluc,
+    oa_K_succ,
+    oa_K_gluc,
+    at_a,
+    oa_a,
+    D,
+):
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    at.v_succ = μ_at_succ
+    at.v_gluc = μ_at_gluc
+    oa.v_succ = μ_oa_succ
+    oa.v_gluc = μ_oa_gluc
+    at.K_succ = at_K_succ
+    at.K_gluc = at_K_gluc
+    oa.K_succ = oa_K_succ
+    oa.K_gluc = oa_K_gluc
+    at.a = at_a
+    oa.a = oa_a
+    D = D
+    xs = np.linspace(0, 200, 500)
 
-    # --- Condition 1: Succinate only ---
+    # At mono-culture
+    oa.N0 = 0.0
+    at.N0 = 0.1
+    at.a = 1
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_at_succ = model.plot_at_oa()
+
+    at.a = 0
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_at_gluc = model.plot_at_oa()
+
+    at.a = at_a
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_at_succ_gluc = model.plot_at_oa()
+
+    # Oa mono-culture
+    at.N0 = 0.0
+    oa.N0 = 0.1
+    oa.a = 1
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_oa_succ = model.plot_at_oa()
+
+    oa.a = 0
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_oa_gluc = model.plot_at_oa()
+
+    oa.a = oa_a
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_oa_succ_gluc = model.plot_at_oa()
+
+    # At + Oa co-culture
+    at.N0, oa.N0 = 0.05, 0.05
+    at.a = 1
+    oa.a = 1
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_at_oa_succ = model.plot_at_oa()
+
+    at.a = 0
+    oa.a = 0
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_at_oa_gluc = model.plot_at_oa()
+
+    at.a = at_a
+    oa.a = oa_a
+    model = Model(at, oa, None, xs, conc, D)
+    model.integrate_model()
+    fig_at_oa_succ_gluc = model.plot_at_oa()
+
+    return (
+        fig_at_succ,
+        fig_oa_succ,
+        fig_at_oa_succ,
+        fig_at_gluc,
+        fig_oa_gluc,
+        fig_at_oa_gluc,
+        fig_at_succ_gluc,
+        fig_oa_succ_gluc,
+        fig_at_oa_succ_gluc,
+    )
 
 
 if __name__ == "__main__":
