@@ -1,3 +1,3 @@
-,v_succ,v_gluc,K_gluc,K_succ,q_succ,q_gluc,a,N0,lag_succ,lag_succ_width,lag_gluc,lag_gluc_width
-At,1.9,3.5,1.5,1,0.033,0.085,1,0.008,6,7,12.5,7
-Oa,1.8,0.8,0.2,2,0.02,0.038,1,0.007,8,0,21.5,12
+,v_succ_lag,v_gluc_lag,K_gluc,K_succ,q_succ,q_gluc,a,N0,lag_succ,lag_succ_width,lag_gluc,lag_gluc_width
+At,3.5,1.5,0.6,3,0.033,0.088,1,0.006,6,6,12.5,11
+Oa,2.4,2,2,3,0.021,0.038,0,0.005,7.6,3,21,4
