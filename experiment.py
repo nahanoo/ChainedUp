@@ -11,6 +11,8 @@ class Species:
         self.name = name
         self.v_succ_lag = float(row["v_succ_lag"])
         self.v_gluc_lag = float(row["v_gluc_lag"])
+        self.v_succ = float(row["v_succ"])
+        self.v_gluc = float(row["v_gluc"])
         self.K_succ = float(row["K_succ"])
         self.K_gluc = float(row["K_gluc"])
         self.q_succ = float(row["q_succ"])
