@@ -14,7 +14,7 @@ def parse_params(f):
 
 
 # --- Initialize parameters once ---
-p_init = parse_params("parameters_dash_init.csv")
+p_init = parse_params("parameters/parameters_dash_init.csv")
 
 
 # --- Simple Monod-like model ---
