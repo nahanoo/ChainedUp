@@ -240,8 +240,9 @@ def update_figures(
     oa.K_gluc = oa_K_gluc
     at.a = at_a
     oa.a = oa_a
-    D = D
     xs = np.linspace(0, 200, 500)
+    if D is None:
+        D = 0.0
 
     # At mono-culture
     oa.N0 = 0.0
@@ -250,16 +251,23 @@ def update_figures(
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_succ = model.plot_at_oa()
+    fig_at_succ.update_layout(
+        title=f"At on {model.C_to_mM_succinate[model.C_mono]} mM Succinate"
+    )
 
     at.a = 0
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_gluc = model.plot_at_oa()
+    fig_at_gluc.update_layout(title="At on Glucose")
 
     at.a = at_a
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_succ_gluc = model.plot_at_oa()
+    fig_at_succ_gluc.update_layout(
+        title=f"At on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+    )
 
     # Oa mono-culture
     at.N0 = 0.0
@@ -268,16 +276,25 @@ def update_figures(
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_oa_succ = model.plot_at_oa()
+    fig_oa_succ.update_layout(
+        title=f"Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate"
+    )
 
     oa.a = 0
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_oa_gluc = model.plot_at_oa()
+    fig_oa_gluc.update_layout(
+        title=f"Oa on {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+    )
 
     oa.a = oa_a
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_oa_succ_gluc = model.plot_at_oa()
+    fig_oa_succ_gluc.update_layout(
+        title=f"Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+    )
 
     # At + Oa co-culture
     at.N0, oa.N0 = 0.05, 0.05
@@ -286,18 +303,27 @@ def update_figures(
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_oa_succ = model.plot_at_oa()
+    fig_at_oa_succ.update_layout(
+        title=f"At + Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate"
+    )
 
     at.a = 0
     oa.a = 0
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_oa_gluc = model.plot_at_oa()
+    fig_at_oa_gluc.update_layout(
+        title=f"At + Oa on {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+    )
 
     at.a = at_a
     oa.a = oa_a
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_oa_succ_gluc = model.plot_at_oa()
+    fig_at_oa_succ_gluc.update_layout(
+        title=f"At + Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+    )
 
     return (
         fig_at_succ,
