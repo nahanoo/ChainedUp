@@ -289,12 +289,10 @@ class Model:
         return fig
 
 
-e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
-concentrations = [2.5, 5, 7.5, 15]
-carbon_sources = ["Succinate", "Glucose"]
-
-
 def simulate_growth_curves():
+    e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
+    concentrations = [2.5, 5, 7.5, 15]
+    carbon_sources = ["Succinate", "Glucose"]
     for conc in concentrations:
         # load parameter file once per concentration
         p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
@@ -365,29 +363,170 @@ def simulate_growth_curves():
                 fig.write_image(outfile)
 
 
-e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
-concentrations = [2.5, 5, 7.5, 15]
-carbon_sources = ["Succinate", "Glucose"]
-species = ["At", "Oa"]
-for cs in carbon_sources:
-    for conc in concentrations:
-        p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
-        params = pd.read_csv(p_f, index_col=0)
-        for cs in carbon_sources:
-            a_pref = 1.0 if cs == "Succinate" else 0.0
-            at = Species("At", params.loc["At"])
-            oa = Species("Oa", params.loc["Oa"])
-            at.a, oa.a = (1, 1) if cs == "Succinate" else (0, 0)
-            at.N0, oa.N0 = at.N0 / 2, oa.N0 / 2  # halve initial biomass for co-culture
-            c = e.get_condition(["At", "Oa"], cs, conc, "OD")
-            c.filter_time(27)
-            fig = c.plot_condition()
-            tgrid = np.linspace(0, c.xs[0][-1], 500)
-            M = Model(at, oa, e, tgrid, conc, 0)
-            M.integrate_mac_arthur()
-            M.plot_at_oa(fig)
-            M.calculate_lag()
-            M.get_parameters()
-            fig.write_image(
-                f"plots/fitting/{at.name.lower()}_{oa.name.lower()}_{conc}_mM_{cs.lower()}_fit.svg"
-            )
+def fit_at_glucose_succinate():
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
+    e.build_conditions()
+    xs = np.linspace(0, 28, 100)
+    succ_at = e.get_condition(["At"], "Succinate", conc, "OD")
+    succ_at.filter_time(xs[-1])
+    succ_gluc_at = e.get_condition(["At"], "Succinate+Glucose", conc * 2, "OD")
+    succ_gluc_at.filter_time(xs[-1])
+    gluc_at = e.get_condition(["At"], "Glucose", conc, "OD")
+    gluc_at.filter_time(xs[-1])
+    fig = succ_at.plot_condition()
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    oa.N0 = 0
+    m = Model(at, oa, e, xs, conc, 0)
+    m.integrate_mac_arthur()
+    fig.add_trace(
+        go.Scatter(
+            x=m.t,
+            y=m.at.y,
+            mode="lines",
+            line=dict(width=2, color="blue"),
+            name="At Simulation",
+        )
+    )
+    fig = style_plot(fig)
+    fig.update_layout(
+        title="Succinate At Simulations vs Data",
+        xaxis_title="Time (hours)",
+        yaxis_title="OD600",
+    )
+    # fig.write_image("plots/simulations/at_succinate.svg")
+
+    fig = gluc_at.plot_condition()
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    oa.N0 = 0
+    at.a = 0
+    m = Model(at, oa, e, xs, conc, 0)
+    m.integrate_mac_arthur()
+    fig.add_trace(
+        go.Scatter(
+            x=m.t,
+            y=m.at.y,
+            mode="lines",
+            line=dict(width=2, color="blue"),
+            name="At Simulation",
+        )
+    )
+    fig = style_plot(fig)
+    fig.update_layout(
+        title="Glucose At Simulations vs Data",
+        xaxis_title="Time (hours)",
+        yaxis_title="OD600",
+    )
+    # fig.write_image("plots/simulations/at_glucose.svg")
+
+    fig = succ_gluc_at.plot_condition()
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    oa.N0 = 0
+    at.a = 1
+    m = Model(at, oa, e, xs, conc, 0)
+    m.integrate_mac_arthur()
+    fig.add_trace(
+        go.Scatter(
+            x=m.t,
+            y=m.at.y,
+            mode="lines",
+            line=dict(width=2, color="blue"),
+            name="At Simulation",
+        )
+    )
+    fig = style_plot(fig)
+    fig.update_layout(
+        title="Succinate+Glucose At Simulations vs Data",
+        xaxis_title="Time (hours)",
+        yaxis_title="OD600",
+    )
+    fig.write_image("plots/simulations/at_succinate_glucose.svg")
+
+
+def fit_oa_glucose_succinate():
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
+    xs = np.linspace(0, 28, 100)
+    succ_oa = e.get_condition(["Oa"], "Succinate", conc, "OD")
+    succ_oa.filter_time(xs[-1])
+    succ_gluc_oa = e.get_condition(["Oa"], "Succinate+Glucose", conc * 2, "OD")
+    succ_gluc_oa.filter_time(xs[-1])
+    gluc_oa = e.get_condition(["Oa"], "Glucose", conc, "OD")
+    gluc_oa.filter_time(xs[-1])
+    fig = succ_oa.plot_condition()
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    at.N0 = 0
+    m = Model(at, oa, e, xs, conc, 0)
+    m.integrate_mac_arthur()
+    fig.add_trace(
+        go.Scatter(
+            x=m.t,
+            y=m.oa.y,
+            mode="lines",
+            line=dict(width=2, color="blue"),
+            name="Oa Simulation",
+        )
+    )
+    fig = style_plot(fig)
+    fig.update_layout(
+        title="Succinate Oa Simulations vs Data",
+        xaxis_title="Time (hours)",
+        yaxis_title="OD600",
+    )
+    # fig.write_image("plots/simulations/oa_succinate.svg")
+
+    fig = gluc_oa.plot_condition()
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    at.N0 = 0
+    oa.a = 0
+    m = Model(at, oa, e, xs, conc, 0)
+    m.integrate_mac_arthur()
+    fig.add_trace(
+        go.Scatter(
+            x=m.t,
+            y=m.oa.y,
+            mode="lines",
+            line=dict(width=2, color="blue"),
+            name="Oa Simulation",
+        )
+    )
+    fig = style_plot(fig)
+    fig.update_layout(
+        title="Glucose Oa Simulations vs Data",
+        xaxis_title="Time (hours)",
+        yaxis_title="OD600",
+    )
+    # fig.write_image("plots/simulations/oa_glucose.svg")
+
+    fig = succ_gluc_oa.plot_condition()
+    at = Species("At", params.loc["At"])
+    oa = Species("Oa", params.loc["Oa"])
+    at.N0 = 0
+    oa.a = 0.75
+    m = Model(at, oa, e, xs, conc, 0)
+    m.integrate_mac_arthur()
+    fig.add_trace(
+        go.Scatter(
+            x=m.t,
+            y=m.oa.y,
+            mode="lines",
+            line=dict(width=2, color="blue"),
+            name="Oa Simulation",
+        )
+    )
+    fig = style_plot(fig)
+    fig.update_layout(
+        title="Succinate+Glucose Oa Simulations vs Data",
+        xaxis_title="Time (hours)",
+        yaxis_title="OD600",
+    )
+    fig.write_image("plots/simulations/oa_succinate_glucose.svg")
