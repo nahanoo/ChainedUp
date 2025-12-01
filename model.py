@@ -117,3 +117,36 @@ class Model:
         )
         fig = style_plot(fig, font_size=14, line_thickness=2)
         return fig
+
+    def plot_substrates(self):
+        fig = go.Figure()
+        if self.glucose[0] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.t,
+                    y=self.glucose,
+                    mode="lines",
+                    line=dict(width=2, color="blue"),
+                    name="Model Glucose",
+                )
+            )
+        if self.succinate[0] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.t,
+                    y=self.succinate,
+                    mode="lines",
+                    line=dict(width=2, color="orange"),
+                    name="Model Succinate",
+                )
+            )
+        title = f"Substrates - {self.C_to_mM_glucose[self.C_mono]} mM Glucose, {self.C_to_mM_succinate[self.C_mono]} mM Succinate"
+        fig.update_layout(
+            title=title,
+            xaxis_title="Time (hours)",
+            yaxis_title="Concentration (mM)",
+            width=600,
+            height=400,
+        )
+        fig = style_plot(fig, font_size=14, line_thickness=2)
+        return fig
