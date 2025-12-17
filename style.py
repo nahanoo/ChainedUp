@@ -5,9 +5,18 @@ colors = {
     "oa": "#c03d3e",
     "ms": "#3274a1",
     "at": "#3b923b",
+    "Ct": "#e1812c",
+    "Oa": "#c03d3e",
+    "Ml": "#3274a1",
+    "At": "#3b923b",
+    "At+Oa": "#7e683c",
     "Spent media Ct": "#1B9E77",
     "Spent media Oa": "#E7298A",
     "H20": "gray",
+    "Succinate": "#4945c5",
+    "Glucose": "#ffa300",
+    "Succinate+Glucose": "#8b619d",
+    "Succinate+Glucose Outflow": "#b35656",
 }
 
 
@@ -39,7 +48,7 @@ def style_plot(
         except KeyError:
             pass
         try:
-            d["error_y"]["thickness"] = line_thickness / 2
+            d["error_y"]["thickness"] = line_thickness
         except KeyError:
             pass
     for a in fig["layout"]["annotations"]:
