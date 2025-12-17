@@ -29,16 +29,18 @@ def simulate_endpoints(args):
 
 
 def a_mono_culture():
-    conc = 7.5
+    conc = 15
     p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
     params = pd.read_csv(p_f, index_col=0)
-    xs = np.linspace(0, 2000, 20000)
+    xs = np.linspace(0, 100, 1000)
     aas = np.linspace(0.0, 1.0, 50)
     with Pool() as pool:
         args_at = [(conc, params, xs, "At", a) for a in aas]
-        C1s_at, C2s_at = zip(*pool.map(simulate_endpoints, args_at))[:2]
+        results_at = pool.map(simulate_endpoints, args_at)
+        C1s_at, C2s_at, At_end_at, Oa_end_at = zip(*results_at)
         args_oa = [(conc, params, xs, "Oa", a) for a in aas]
-        C1s_oa, C2s_oa = zip(*pool.map(simulate_endpoints, args_oa))[:2]
+        results_oa = pool.map(simulate_endpoints, args_oa)
+        C1s_oa, C2s_oa, At_end_oa, Oa_end_oa = zip(*results_oa)
 
     fig = go.Figure()
     fig.add_trace(
@@ -93,11 +95,11 @@ def a_mono_culture():
 
 
 def a1_a2_sweep():
-    conc = 7.5
+    conc = 15
     p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
     params = pd.read_csv(p_f, index_col=0)
 
-    xs = np.linspace(0, 2000, 20000)
+    xs = np.linspace(0, 100, 1000)
     aas = np.linspace(0.0, 1.0, 50)
 
     n = len(aas)
@@ -119,7 +121,6 @@ def a1_a2_sweep():
 
     ratio = Z_C1 / (Z_C1 + Z_C2)
 
-    tol = 1e-4
     Zs = [Z_C1, Z_C2, ratio]
     scale_names = ["Succinate<br>[mM]", "Glucose<br>[mM]", "Succinate<br>ratio"]
     zmaxs = [np.nanmax(Z_C1), np.nanmax(Z_C2), 1.0]  # ratio in [0,1]
@@ -143,25 +144,34 @@ def a1_a2_sweep():
             )
         )
 
-        # isolines where N1/N2 cross tol
-        fig.add_trace(
-            go.Contour(
-                z=Z_N1,
-                x=aas,
-                y=aas,
-                contours=dict(start=tol, end=tol, coloring="lines"),
-                colorscale=[[0, "black"], [1, "black"]],
-                showscale=False,
-            )
+        fig.update_layout(
+            xaxis=dict(title="a At", ticks="inside"),
+            yaxis=dict(title="a Oa", ticks="inside"),
         )
+        fig = style_plot(fig, line_thickness=1.5, font_size=font_size)
+        fig.write_image(f"plots/contours/{filenames[idx]}")
+
+    ratio = Z_N1 / (Z_N1 + Z_N2)
+    Zs = [Z_N1, Z_N2, ratio]
+    scale_names = ["OD At", "OD Oa", "At ratio"]
+    zmaxs = [np.nanmax(Z_N1), np.nanmax(Z_N2), 1.0]  # ratio in [0,1]
+    filenames = ["a1_a2_C12_At.pdf", "a1_a2_C22_Oa.pdf", "a1_a2_ratio2_At_Oa.pdf"]
+
+    for idx, Z in enumerate(Zs):
+        fig = go.Figure()
         fig.add_trace(
             go.Contour(
-                z=Z_N2,
+                z=Z,
                 x=aas,
                 y=aas,
-                contours=dict(start=tol, end=tol, coloring="lines"),
-                colorscale=[[0, "white"], [1, "white"]],
-                showscale=False,
+                contours=dict(showlines=False),
+                colorscale="Viridis",
+                zmin=0,
+                zmax=zmaxs[idx],
+                zauto=False,
+                ncontours=50,
+                colorbar=dict(title=scale_names[idx], len=0.6, y=0.2, thickness=12),
+                name=scale_names[idx],
             )
         )
 
@@ -171,3 +181,6 @@ def a1_a2_sweep():
         )
         fig = style_plot(fig, line_thickness=1.5, font_size=font_size)
         fig.write_image(f"plots/contours/{filenames[idx]}")
+
+
+a_mono_culture()
