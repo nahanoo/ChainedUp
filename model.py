@@ -2,6 +2,7 @@ import pandas as pd
 from scipy.integrate import odeint
 import plotly.graph_objects as go
 from style import style_plot
+import numpy as np
 
 
 class Model:
@@ -75,6 +76,28 @@ class Model:
     def plot_at_oa(self):
         fig = go.Figure()
         species = []
+        if (self.M_glucose != 0) and (self.M_succinate != 0):
+            customdata = np.column_stack([self.succinate, self.glucose])
+            hovertemplate = (
+                "Time: %{x:.2f} hours<br>"
+                "Succinate: %{customdata[0]:.2f} mM<br>"
+                "Glucose: %{customdata[1]:.2f} mM<br>"
+                "<extra></extra>"
+            )
+        elif (self.M_glucose != 0) and (self.M_succinate == 0):
+            customdata = self.glucose
+            hovertemplate = (
+                "Time: %{x:.2f} hours<br>"
+                "Glucose: %{customdata:.2f} mM<br>"
+                "<extra></extra>"
+            )
+        elif (self.M_glucose == 0) and (self.M_succinate != 0):
+            customdata = self.succinate
+            hovertemplate = (
+                "Time: %{x:.2f} hours<br>"
+                "Succinate: %{customdata:.2f} mM<br>"
+                "<extra></extra>"
+            )
         if self.at.y[0] != 0:
             fig.add_trace(
                 go.Scatter(
@@ -83,6 +106,8 @@ class Model:
                     mode="lines",
                     line=dict(width=2, color="green"),
                     name="Model At",
+                    customdata=customdata,
+                    hovertemplate=hovertemplate,
                 )
             )
             species.append("At")
@@ -94,6 +119,8 @@ class Model:
                     mode="lines",
                     line=dict(width=2, color="red"),
                     name="Model Oa",
+                    customdata=customdata,
+                    hovertemplate=hovertemplate,
                 )
             )
             species.append("Oa")
@@ -105,6 +132,8 @@ class Model:
                     mode="lines",
                     line=dict(width=2, color="purple"),
                     name="Model Total",
+                    customdata=customdata,
+                    hovertemplate=hovertemplate,
                 )
             )
         title = f"{' + '.join(species)} - {self.C_to_mM_glucose[self.C_mono]} mM Glucose, {self.C_to_mM_succinate[self.C_mono]} mM Succinate"
