@@ -369,7 +369,7 @@ def fit_at_glucose_succinate():
     params = pd.read_csv(p_f, index_col=0)
     e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
     e.build_conditions()
-    xs = np.linspace(0, 28, 100)
+    xs = np.linspace(0, 28, 1000)
     succ_at = e.get_condition(["At"], "Succinate", conc, "OD")
     succ_at.filter_time(xs[-1])
     succ_gluc_at = e.get_condition(["At"], "Succinate+Glucose", conc * 2, "OD")
@@ -437,6 +437,14 @@ def fit_at_glucose_succinate():
             mode="lines",
             line=dict(width=2, color="blue"),
             name="At Simulation",
+            customdata=np.column_stack([m.succinate, m.glucose]),
+            hovertemplate=(
+                "t = %{x:.2f} h<br>"
+                "At = %{y:.3f} OD<br>"
+                "Succinate = %{customdata[0]:.3f} mM<br>"
+                "Glucose = %{customdata[1]:.3f} mM<br>"
+                "<extra></extra>"
+            ),
         )
     )
     fig = style_plot(fig)
@@ -445,6 +453,7 @@ def fit_at_glucose_succinate():
         xaxis_title="Time (hours)",
         yaxis_title="OD600",
     )
+    fig.show()
     fig.write_image("plots/simulations/at_succinate_glucose.svg")
 
 
@@ -530,3 +539,6 @@ def fit_oa_glucose_succinate():
         yaxis_title="OD600",
     )
     fig.write_image("plots/simulations/oa_succinate_glucose.svg")
+
+
+fit_oa_glucose_succinate()
