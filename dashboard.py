@@ -240,33 +240,39 @@ def update_figures(
     oa.K_gluc = oa_K_gluc
     at.a = at_a
     oa.a = oa_a
-    xs = np.linspace(0, 200, 500)
+    xs = np.linspace(0, 100, 1000)
+    height = 300
     if D is None:
         D = 0.0
 
     # At mono-culture
     oa.N0 = 0.0
     at.N0 = 0.1
-    at.a = 1
     model = Model(at, oa, None, xs, conc, D)
+    model.M_glucose = 0.0
     model.integrate_model()
     fig_at_succ = model.plot_at_oa()
     fig_at_succ.update_layout(
-        title=f"At on {model.C_to_mM_succinate[model.C_mono]} mM Succinate"
+        title=f"At on {model.C_to_mM_succinate[model.C_mono]} mM Succinate",
+        height=height,
     )
 
     at.a = 0
     model = Model(at, oa, None, xs, conc, D)
+    model.M_succinate = 0.0
     model.integrate_model()
     fig_at_gluc = model.plot_at_oa()
-    fig_at_gluc.update_layout(title="At on Glucose")
+    fig_at_gluc.update_layout(
+        title=f"At on {model.C_to_mM_glucose[model.C_mono]} mM Glucose", height=height
+    )
 
     at.a = at_a
     model = Model(at, oa, None, xs, conc, D)
     model.integrate_model()
     fig_at_succ_gluc = model.plot_at_oa()
     fig_at_succ_gluc.update_layout(
-        title=f"At on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+        title=f"At on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose",
+        height=height,
     )
 
     # Oa mono-culture
@@ -274,18 +280,21 @@ def update_figures(
     oa.N0 = 0.1
     oa.a = 1
     model = Model(at, oa, None, xs, conc, D)
+    model.M_glucose = 0.0
     model.integrate_model()
     fig_oa_succ = model.plot_at_oa()
     fig_oa_succ.update_layout(
-        title=f"Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate"
+        title=f"Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate",
+        height=height,
     )
 
     oa.a = 0
     model = Model(at, oa, None, xs, conc, D)
+    model.M_succinate = 0.0
     model.integrate_model()
     fig_oa_gluc = model.plot_at_oa()
     fig_oa_gluc.update_layout(
-        title=f"Oa on {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+        title=f"Oa on {model.C_to_mM_glucose[model.C_mono]} mM Glucose", height=height
     )
 
     oa.a = oa_a
@@ -293,7 +302,8 @@ def update_figures(
     model.integrate_model()
     fig_oa_succ_gluc = model.plot_at_oa()
     fig_oa_succ_gluc.update_layout(
-        title=f"Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+        title=f"Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose",
+        height=height,
     )
 
     # At + Oa co-culture
@@ -301,19 +311,23 @@ def update_figures(
     at.a = 1
     oa.a = 1
     model = Model(at, oa, None, xs, conc, D)
+    model.M_glucose = 0.0
     model.integrate_model()
     fig_at_oa_succ = model.plot_at_oa()
     fig_at_oa_succ.update_layout(
-        title=f"At + Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate"
+        title=f"At + Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate",
+        height=height,
     )
 
     at.a = 0
     oa.a = 0
     model = Model(at, oa, None, xs, conc, D)
+    model.M_succinate = 0.0
     model.integrate_model()
     fig_at_oa_gluc = model.plot_at_oa()
     fig_at_oa_gluc.update_layout(
-        title=f"At + Oa on {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+        title=f"At + Oa on {model.C_to_mM_glucose[model.C_mono]} mM Glucose",
+        height=height,
     )
 
     at.a = at_a
@@ -322,7 +336,8 @@ def update_figures(
     model.integrate_model()
     fig_at_oa_succ_gluc = model.plot_at_oa()
     fig_at_oa_succ_gluc.update_layout(
-        title=f"At + Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose"
+        title=f"At + Oa on {model.C_to_mM_succinate[model.C_mono]} mM Succinate + {model.C_to_mM_glucose[model.C_mono]} mM Glucose",
+        height=height,
     )
 
     return (
