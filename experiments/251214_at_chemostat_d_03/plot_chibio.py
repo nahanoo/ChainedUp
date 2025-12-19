@@ -45,6 +45,7 @@ def plot_chibio(df):
 
 def plot_chibio_dilution():
     df = get_od()
+    df.to_csv("dataframes/chibio_od.csv", index=False)
     fig = plot_chibio(df)
     fig.update_layout(
         legend=dict(
@@ -79,6 +80,9 @@ def plot_chibio_dilution():
         ),
     )
     fig.write_image("plots/chibio_od.svg")
+
+
+plot_chibio_dilution()
 
 
 def parse_plate_reader(dir):
