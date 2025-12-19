@@ -17,6 +17,7 @@ colors = {
     "Glucose": "#ffa300",
     "Succinate+Glucose": "#8b619d",
     "Succinate+Glucose Outflow": "#b35656",
+    "Total": "purple",
 }
 
 
