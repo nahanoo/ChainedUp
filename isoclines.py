@@ -170,12 +170,15 @@ def resource_allocation_heatmap():
     )
 
     fig.update_layout(
-        xaxis_title="Resource allocation At",
-        xaxis2_title="Resource allocation At",
-        yaxis_title="Resource allocation Oa",
-        width=750,
+        xaxis=dict(title="Resource allocation At", dtick=0.2),
+        xaxis2=dict(title="Resource allocation At", dtick=0.2),
+        yaxis=dict(title="Resource allocation Oa", dtick=0.2),
+        width=760,
         height=380,
         title="Coexistence in succinate-glucose space",
     )
     fig = style_plot(fig, font_size=12, line_thickness=2, top_margin=35)
     fig.write_image("plots/contours/coexistence_resource_allocation.svg")
+
+
+resource_allocation_heatmap()
