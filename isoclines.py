@@ -112,10 +112,6 @@ def a_mono_culture():
 
 
 def resource_allocation_heatmap():
-    colors_heatmap = [
-        colors["Glucose"],
-        colors["Succinate"],
-    ]
     aas = np.linspace(0.0, 1.0, 20)
     conc = 15
     p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
@@ -181,4 +177,93 @@ def resource_allocation_heatmap():
     fig.write_image("plots/contours/coexistence_resource_allocation.svg")
 
 
-resource_allocation_heatmap()
+def at_resource_allocation_steady_state():
+    aas = np.linspace(0.0, 1.0, 20)
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    xs = np.linspace(0, 100, 1000)
+    with Pool() as pool:
+        args = [(conc, params, xs, "At", a_at) for a_at in aas]
+        results = pool.map(simulate_endpoints, args)
+        suc_c1, gluc_c1, at_c1, oa_c1, suc_c2, gluc_c2, at_c2, oa_c2 = np.asarray(
+            results
+        ).T
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=at_c1,
+            mode="lines+markers",
+            marker=dict(color=colors["Succinate"]),
+            name="Chemostat 1",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=at_c2,
+            mode="lines+markers",
+            marker=dict(color=colors["Glucose"]),
+            name="Downstream<br>Chemostat",
+        )
+    )
+    fig.update_layout(
+        xaxis=dict(title="Resource allocation At"),
+        yaxis=dict(title="At steady state"),
+        title="At steady state as function of resource allocation",
+        legend=dict(y=0.5, yanchor="middle", title="Chemostat position"),
+    )
+    fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
+    fig.write_image("plots/contours/at_resource_allocation.svg")
+
+
+def carbon_allocation():
+    aas = np.linspace(0.0, 1.0, 20)
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    xs = np.linspace(0, 100, 1000)
+    with Pool() as pool:
+        args = [(conc, params, xs, "At", a_at) for a_at in aas]
+        results = pool.map(simulate_endpoints, args)
+        suc_c1, gluc_c1, at_c1, oa_c1, suc_c2, gluc_c2, at_c2, oa_c2 = np.asarray(
+            results
+        ).T
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=4 * suc_c1,
+            mode="lines+markers",
+            marker=dict(color=colors["Succinate"]),
+            name="Carbon from Succinate",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=6 * gluc_c1,
+            mode="lines+markers",
+            marker=dict(color=colors["Glucose"]),
+            name="Carbon from Glucose",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=6 * gluc_c1 + 4 * suc_c1,
+            mode="lines+markers",
+            marker=dict(color=colors["Succinate+Glucose"]),
+            name="Total carbon",
+        )
+    )
+    fig.update_layout(
+        xaxis=dict(title="Resource allocation At"),
+        yaxis=dict(title="Total carbon in chemostat 1 [mM C]"),
+        title="Total carbon in chemostat 1 as function of resource allocation",
+    )
+    fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
+    fig.write_image("plots/contours/at_total_carbon.svg")
