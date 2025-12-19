@@ -7,7 +7,7 @@ import numpy as np
 
 def plot_yield():
     df = pd.read_csv("growth_yields.csv", dtype={"max_od": float})
-    substrates = ["Succinate", "Glucose", "Succinate+Glucose"]
+    substrates = ["Glucose", "Succinate", "Succinate+Glucose"]
 
     for substrate in substrates:
         df_sub = df[df["substrate"] == substrate]
@@ -43,7 +43,7 @@ def plot_yield():
                     conc = conc.replace("(", "").replace(")", "")
                     m_succ, m_gluc = conc.split(", ")
                     total_conc.append(float(m_succ) + float(m_gluc))
-                    labels.append(f"{m_succ} mM, {m_gluc} mM")
+                    labels.append(f"{m_succ}, {m_gluc} mM")
                 for i in ["max_od_r1", "max_od_r2", "max_od_r3"]:
                     fig.add_trace(
                         go.Scatter(
