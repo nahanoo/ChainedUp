@@ -125,6 +125,3 @@ def plot_growth_curves_stocks():
     )
     fig = style_plot(fig, line_thickness=2, font_size=12)
     fig.write_image(f"plots/growth_curves_{conc_init}mM.svg")
-
-
-plot_growth_curves_stocks()
