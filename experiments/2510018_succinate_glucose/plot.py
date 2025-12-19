@@ -307,10 +307,7 @@ def write_yeilds():
     return df
 
 
-# for q in [2.5, 5, 7.5, 15, 30, 45]:
-#    glucose_succinate_layered(q)
-glucose()
 succinate()
 glucose_succinate()
-# glucose_uccinate_layered()
-df = write_yeilds()
+glucose_succinate_layered()
+# df = write_yeilds()

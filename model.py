@@ -3,6 +3,7 @@ from scipy.integrate import odeint
 import plotly.graph_objects as go
 from style import style_plot
 import numpy as np
+from scipy.integrate import solve_ivp
 
 
 class Model:
@@ -44,7 +45,7 @@ class Model:
         self.glucose = None
         self.succinate = None
 
-    def simulate(self, y, t):
+    def simulate(self, t, y):
         at, oa, g, s = y
         J_S_at = self.at.a * self.at.v_succ_lag * s / (self.at.K_succ + s)
         J_G_at = (1.0 - self.at.a) * self.at.v_gluc_lag * g / (self.at.K_gluc + g)
@@ -69,9 +70,25 @@ class Model:
 
     def integrate_model(self):
         y0 = [self.at.N0, self.oa.N0, self.M_glucose, self.M_succinate]
-        self.at.y, self.oa.y, self.glucose, self.succinate = odeint(
-            self.simulate, y0, self.t
-        ).T
+        sol = solve_ivp(
+            self.simulate,
+            (self.t[0], self.t[-1]),
+            y0,
+            t_eval=self.t,
+            method="BDF",
+            rtol=1e-8,
+            atol=1e-12,
+        )
+
+        Y = sol.y.T
+        Y = sol.y.T
+        Y[np.abs(Y) < 1e-12] = 0.0
+        self.at.y, self.oa.y, self.glucose, self.succinate = (
+            Y[:, 0],
+            Y[:, 1],
+            Y[:, 2],
+            Y[:, 3],
+        )
 
     def plot_at_oa(self):
         fig = go.Figure()
@@ -179,3 +196,24 @@ class Model:
         )
         fig = style_plot(fig, font_size=14, line_thickness=2)
         return fig
+
+
+"""
+from os import path
+from experiment import Species, Experiment
+
+xs = np.linspace(0, 100, 1000)
+p_f = path.join("parameters", f"parameters_{15}_mM_C.csv")
+params = pd.read_csv(p_f, index_col=0)
+at = Species("At", params.loc["At"])
+at.N0 = 0.221667
+at.a = 0.94736842
+oa = Species("Oa", params.loc["Oa"])
+oa.N0 = 0.0
+# oa.a = 0.0
+
+m = Model(at, oa, None, xs, 15, 0.3)
+m.integrate_model()
+fig = m.plot_at_oa()
+fig.write_image("tmp.svg")
+"""
