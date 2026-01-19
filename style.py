@@ -13,10 +13,10 @@ colors = {
     "Spent media Ct": "#1B9E77",
     "Spent media Oa": "#E7298A",
     "H20": "gray",
-    "Succinate": "#4945c5",
-    "Glucose": "#ffa300",
-    "Succinate+Glucose": "#8b619d",
-    "Succinate+Glucose Outflow": "#b35656",
+    "Succinate": "#0B2F7A",
+    "Glucose": "#8B8C6D",
+    "Succinate+Glucose": "#375C8D",
+    "Succinate+Glucose Outflow": "#FDE724",
     "Total": "purple",
 }
 
@@ -29,7 +29,7 @@ def style_plot(
     right_margin=30,
     buttom_margin=30,
     font_size=11,
-    line_thickness=1.5,
+    line_thickness=3,
 ):
     """Style function for figures setting fot size and true black color."""
     fig.update_layout(
