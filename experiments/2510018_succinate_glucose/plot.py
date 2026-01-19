@@ -257,7 +257,7 @@ def glucose_succinate_layered(q):
             for lg in linegroups:
                 x = data[lg + "_time"].to_numpy()
                 y = data[lg + "_measurement"].to_numpy()
-                x, y = filter_time(x, y, 27)  # Apply time filtering
+                x, y = filter_time(x, y, 30)  # Apply time filtering
                 show = cs not in seen
                 fig.add_trace(
                     go.Scatter(
@@ -267,7 +267,8 @@ def glucose_succinate_layered(q):
                         line=dict(color=colors[cs], width=2),
                         name=cs,  # same name across traces of this group
                         legendgroup=cs,  # groups in legend
-                        showlegend=show,  # only first one shows
+                        # showlegend=show,  # only first one shows
+                        showlegend=False,
                         # legendrank=10,         # optional: control ordering
                     ),
                     row=j + 1,
@@ -276,9 +277,13 @@ def glucose_succinate_layered(q):
                 if show:
                     seen.add(cs)
     fig.update_layout(
-        title=title, xaxis3_title="Time (hours)", yaxis2_title="OD600", width=600
+        title=title,
+        xaxis3_title="Time (hours)",
+        yaxis2_title="OD600",
+        width=663,
+        height=580,
     )
-    fig = style_plot(fig, font_size=font_size)
+    fig = style_plot(fig, font_size=18, line_thickness=3)
     fig.write_image(
         "plots/glucose_succinate_" + str(q) + "_" + title.replace(" ", "_") + ".svg"
     )
@@ -307,7 +312,7 @@ def write_yeilds():
     return df
 
 
-succinate()
-glucose_succinate()
-glucose_succinate_layered()
+# succinate()
+# glucose_succinate()
+glucose_succinate_layered(15)
 # df = write_yeilds()

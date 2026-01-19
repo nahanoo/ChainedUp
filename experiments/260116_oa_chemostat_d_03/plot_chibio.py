@@ -3,6 +3,7 @@ from chibio_parser import fluorescence_paresr, calibration_csv
 from style import style_plot, colors
 import pandas as pd
 import glob
+import plotly.express as px
 
 reactor_map = {
     "M0": "Succinate",
@@ -13,9 +14,9 @@ reactor_map = {
 
 
 def get_od():
-    df = fluorescence_paresr("251208_at_chemostat_d_03")
+    df = fluorescence_paresr("260119_oa_chemostat_d_03")
     df = df[(df["exp_time"] >= 0.08) & (df["exp_time"] <= 140)]
-    df = calibration_csv("../../data/251208_at_chemostat_d_03/calibration.csv", df)
+    df = calibration_csv("../../data/260119_oa_chemostat_d_03/calibration.csv", df)
     return df
 
 
@@ -26,9 +27,9 @@ def plot_chibio(df):
         od_r = df[df["reactor"] == reactor]
         fig.add_trace(
             go.Scatter(
-                x=od_r["exp_time"][::10],
-                y=od_r["od_calibrated"][::10],
-                mode="lines+markers",
+                x=od_r["exp_time"],
+                y=od_r["od_calibrated"],
+                mode="lines",
                 name=f"{reactor_map[reactor]}",
                 line=dict(color=colors[reactor_map[reactor]]),
                 marker=dict(size=6),
@@ -49,34 +50,34 @@ def plot_chibio_dilution():
     fig = plot_chibio(df)
     fig.update_layout(
         legend=dict(
-            title="Carbon Source",
             x=0.01,
             y=0.99,
             xanchor="left",
             yanchor="top",
+            bgcolor="rgba(0,0,0,0)",
         ),
     )
     fig.add_vline(
-        x=96,
+        x=93,
         line=dict(color="gray", dash="dash"),
         annotation=dict(
             text="Stopped dilution",
             showarrow=False,
         ),
     )
-    fig = style_plot(fig)
+    fig = style_plot(fig, marker_size=5)
     fig.write_image("plots/chibio_od_full.svg")
 
-    df = df[(df["exp_time"] <= 95)]
+    df = df[(df["exp_time"] <= 93)]
     fig = plot_chibio(df)
-    fig = style_plot(fig)
+    fig = style_plot(fig, marker_size=5)
     fig.update_layout(
         legend=dict(
-            title="Carbon Source",
-            x=0.99,
-            y=0.6,
-            xanchor="right",
-            yanchor="middle",
+            x=0.01,
+            y=0.99,
+            xanchor="left",
+            yanchor="top",
+            bgcolor="rgba(0,0,0,0)",
         ),
     )
     fig.write_image("plots/chibio_od.svg")
@@ -86,8 +87,7 @@ def plot_chibio_succ_gluc():
     df = get_od()
     df.to_csv("dataframes/chibio_od.csv", index=False)
     df = df[(df["reactor"] == "M0") | (df["reactor"] == "M1")]
-    df = df[(df["exp_time"] <= 95)]
-    df = df[::30]
+    df = df[(df["exp_time"] <= 93)]
     fig = plot_chibio(df)
     fig.update_layout(
         legend=dict(
@@ -96,6 +96,7 @@ def plot_chibio_succ_gluc():
             y=0.99,
             xanchor="left",
             yanchor="top",
+            bgcolor="rgba(0,0,0,0)",
         ),
     )
     fig.update_layout(
@@ -116,8 +117,7 @@ def plot_chain():
     df = get_od()
     df.to_csv("dataframes/chibio_od.csv", index=False)
     df = df[(df["reactor"] == "M2") | (df["reactor"] == "M3")]
-    df = df[(df["exp_time"] <= 95)]
-    df = df[::30]
+    df = df[(df["exp_time"] <= 93)]
     fig = plot_chibio(df)
     fig.update_layout(
         legend=dict(
@@ -138,7 +138,7 @@ def plot_chain():
         showlegend=False,
     )
 
-    fig = style_plot(fig, line_thickness=2, marker_size=6, font_size=14)
+    fig = style_plot(fig, line_thickness=2, marker_size=5, font_size=14)
     fig.write_image("plots/chibio_od_succinate_glucose_chain.svg")
 
 
@@ -195,7 +195,8 @@ def parse_plate_reader(dir):
 
 
 def plot_plate_reader():
-    df = parse_plate_reader("../../data/251208_at_chemostat_d_03/plate_reader")
+    df = parse_plate_reader("../../data/260119_oa_chemostat_d_03/plate_reader")
+    df.to_csv("dataframes/plate_reader_od.csv", index=False)
     df.replace(0, None, inplace=True)
     fig = go.Figure()
     for condition in [
@@ -233,5 +234,11 @@ def plot_plate_reader():
         ),
         title="At in chemostats at dilution rate 0.03 h<sup>-1</sup> (Plate Reader)",
     )
-    fig = style_plot(fig, line_thickness=2, marker_size=6)
+    fig = style_plot(fig, line_thickness=3, marker_size=5)
     fig.write_image("plots/plate_reader_od.svg")
+
+
+# plot_chibio_dilution()
+# plot_chibio_succ_gluc()
+# plot_chibio_succ_gluc()
+plot_plate_reader()

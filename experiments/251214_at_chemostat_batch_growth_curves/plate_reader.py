@@ -74,7 +74,7 @@ def plot_growth_curves_stocks():
         15: ["3.75 mM Succinate", "2.5 mM Glucose"],
         30: ["7.5 mM Succinate", "5 mM Glucose"],
     }
-    conc_init = 5
+    conc_init = 15
     concentrations = [conc_init, conc_init, 2 * conc_init]
     for cs, conc in zip(carbon_sources, concentrations):
         for c in e.conditions:
@@ -125,3 +125,7 @@ def plot_growth_curves_stocks():
     )
     fig = style_plot(fig, line_thickness=2, font_size=12)
     fig.write_image(f"plots/growth_curves_{conc_init}mM.svg")
+
+
+plot_chemostat_growth_curves()
+plot_growth_curves_stocks()
