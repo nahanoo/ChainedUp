@@ -539,6 +539,3 @@ def fit_oa_glucose_succinate():
         yaxis_title="OD600",
     )
     fig.write_image("plots/simulations/oa_succinate_glucose.svg")
-
-
-fit_oa_glucose_succinate()

@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 
 def plot_all_conditions():
-    df, _ = cfu_parser("251208_at_chemostat_d_03")
+    df, _ = cfu_parser("260119_oa_chemostat_d_03")
     df["average"] = df["average"].replace(0, None)
     reactor_map = {
         "M0": "Succinate",
@@ -34,7 +34,7 @@ def plot_all_conditions():
 
     fig.update_layout(
         xaxis=dict(ticks="inside", title="Time [h]"),
-        yaxis=dict(ticks="inside", title="CFU/mL", type="log", range=[6, 10]),
+        yaxis=dict(ticks="inside", title="CFU/mL", type="log", range=[6, 11]),
         title="CFU/mL in chemostats at dilution rate 0.3 h<sup>-1</sup>",
         legend=dict(title="Carbon Source", x=0.00, y=0.01),
     )
@@ -44,7 +44,7 @@ def plot_all_conditions():
 
 
 def plot_succinate_glucose():
-    df, _ = cfu_parser("251208_at_chemostat_d_03")
+    df, _ = cfu_parser("260119_oa_chemostat_d_03")
     df = df[(df["reactor"] == "M0") | (df["reactor"] == "M1")]
     df["average"] = df["average"].replace(0, None)
     reactor_map = {
@@ -79,7 +79,7 @@ def plot_succinate_glucose():
         title="CFU/mL in chemostats at dilution rate 0.3 h<sup>-1</sup>",
         legend=dict(title="Carbon Source", x=0.00, y=0.01),
         height=190,
-        width=540,
+        width=260,
         showlegend=False,
     )
 
@@ -88,7 +88,7 @@ def plot_succinate_glucose():
 
 
 def plot_chain():
-    df, _ = cfu_parser("251208_at_chemostat_d_03")
+    df, _ = cfu_parser("260119_oa_chemostat_d_03")
     df = df[(df["reactor"] == "M2") | (df["reactor"] == "M3")]
     df["average"] = df["average"].replace(0, None)
     reactor_map = {
@@ -132,7 +132,7 @@ def plot_chain():
 
 
 def plot_succinate_glucose_single():
-    df, _ = cfu_parser("251208_at_chemostat_d_03")
+    df, _ = cfu_parser("260119_oa_chemostat_d_03")
     df = df[(df["reactor"] == "M2")]
     df["average"] = df["average"].replace(0, None)
     reactor_map = {
@@ -175,7 +175,4 @@ def plot_succinate_glucose_single():
     fig.write_image("plots/cfu_chemostat_succinate+glucose.svg")
 
 
-plot_all_conditions()
 plot_succinate_glucose()
-plot_chain()
-plot_succinate_glucose_single()

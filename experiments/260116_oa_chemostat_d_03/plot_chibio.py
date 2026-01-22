@@ -191,13 +191,15 @@ def parse_plate_reader(dir):
             od_sgo,
             od_sgo_std,
         ]
+    time_points = [0, 22.3, 28.3, 46, 52.8, 69.94, 77.7, 94]
+    od["time"] = time_points
     return od
 
 
 def plot_plate_reader():
     df = parse_plate_reader("../../data/260119_oa_chemostat_d_03/plate_reader")
     df.to_csv("dataframes/plate_reader_od.csv", index=False)
-    df.replace(0, None, inplace=True)
+    # df.replace(0, None, inplace=True)
     fig = go.Figure()
     for condition in [
         "Succinate",
@@ -238,7 +240,5 @@ def plot_plate_reader():
     fig.write_image("plots/plate_reader_od.svg")
 
 
-# plot_chibio_dilution()
-# plot_chibio_succ_gluc()
-# plot_chibio_succ_gluc()
+plot_chibio_dilution()
 plot_plate_reader()
