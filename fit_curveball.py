@@ -101,6 +101,7 @@ for i, m in enumerate(models[:2]):
         col=i + 1,
         showarrow=False,
     )
+    fig.update_layout(showlegend=False)
 
 for i, m in enumerate(models[2:4]):
     fig = figures[species[1]]
@@ -147,6 +148,7 @@ for i, m in enumerate(models[2:4]):
         col=i + 1,
         showarrow=False,
     )
+    fig.update_layout(showlegend=False)
 
 
 fnames = ["plots/fitting/oa_curveball.svg", "plots/fitting/at_curveball.svg"]

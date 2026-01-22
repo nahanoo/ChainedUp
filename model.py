@@ -47,10 +47,10 @@ class Model:
 
     def simulate(self, t, y):
         at, oa, g, s = y
-        J_S_at = self.at.a * self.at.v_succ_lag * s / (self.at.K_succ + s)
-        J_G_at = (1.0 - self.at.a) * self.at.v_gluc_lag * g / (self.at.K_gluc + g)
-        J_S_oa = self.oa.a * self.oa.v_succ_lag * s / (self.oa.K_succ + s)
-        J_G_oa = (1.0 - self.oa.a) * self.oa.v_gluc_lag * g / (self.oa.K_gluc + g)
+        J_S_at = self.at.a * self.at.v_succ * s / (self.at.K_succ + s)
+        J_G_at = (1.0 - self.at.a) * self.at.v_gluc * g / (self.at.K_gluc + g)
+        J_S_oa = self.oa.a * self.oa.v_succ * s / (self.oa.K_succ + s)
+        J_G_oa = (1.0 - self.oa.a) * self.oa.v_gluc * g / (self.oa.K_gluc + g)
 
         J_at = J_S_at + J_G_at
         J_oa = J_S_oa + J_G_oa
@@ -196,24 +196,3 @@ class Model:
         )
         fig = style_plot(fig, font_size=14, line_thickness=2)
         return fig
-
-
-"""
-from os import path
-from experiment import Species, Experiment
-
-xs = np.linspace(0, 100, 1000)
-p_f = path.join("parameters", f"parameters_{15}_mM_C.csv")
-params = pd.read_csv(p_f, index_col=0)
-at = Species("At", params.loc["At"])
-at.N0 = 0.221667
-at.a = 0.94736842
-oa = Species("Oa", params.loc["Oa"])
-oa.N0 = 0.0
-# oa.a = 0.0
-
-m = Model(at, oa, None, xs, 15, 0.3)
-m.integrate_model()
-fig = m.plot_at_oa()
-fig.write_image("tmp.svg")
-"""

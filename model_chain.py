@@ -78,10 +78,10 @@ class Model:
         fS_oa_c1 = monod(s_c1, self.c1.oa.K_succ)
         fG_oa_c1 = monod(g_c1, self.c1.oa.K_gluc)
 
-        J_S_at_c1 = self.c1.at.a * self.c1.at.v_succ_lag * fS_at_c1
-        J_G_at_c1 = (1.0 - self.c1.at.a) * self.c1.at.v_gluc_lag * fG_at_c1
-        J_S_oa_c1 = self.c1.oa.a * self.c1.oa.v_succ_lag * fS_oa_c1
-        J_G_oa_c1 = (1.0 - self.c1.oa.a) * self.c1.oa.v_gluc_lag * fG_oa_c1
+        J_S_at_c1 = self.c1.at.a * self.c1.at.v_succ * fS_at_c1
+        J_G_at_c1 = (1.0 - self.c1.at.a) * self.c1.at.v_gluc * fG_at_c1
+        J_S_oa_c1 = self.c1.oa.a * self.c1.oa.v_succ * fS_oa_c1
+        J_G_oa_c1 = (1.0 - self.c1.oa.a) * self.c1.oa.v_gluc * fG_oa_c1
 
         J_at_c1 = J_S_at_c1 + J_G_at_c1
         J_oa_c1 = J_S_oa_c1 + J_G_oa_c1
@@ -91,10 +91,10 @@ class Model:
         fS_oa_c2 = monod(s_c2, self.c2.oa.K_succ)
         fG_oa_c2 = monod(g_c2, self.c2.oa.K_gluc)
 
-        J_S_at_c2 = self.c2.at.a * self.c2.at.v_succ_lag * fS_at_c2
-        J_G_at_c2 = (1.0 - self.c2.at.a) * self.c2.at.v_gluc_lag * fG_at_c2
-        J_S_oa_c2 = self.c2.oa.a * self.c2.oa.v_succ_lag * fS_oa_c2
-        J_G_oa_c2 = (1.0 - self.c2.oa.a) * self.c2.oa.v_gluc_lag * fG_oa_c2
+        J_S_at_c2 = self.c2.at.a * self.c2.at.v_succ * fS_at_c2
+        J_G_at_c2 = (1.0 - self.c2.at.a) * self.c2.at.v_gluc * fG_at_c2
+        J_S_oa_c2 = self.c2.oa.a * self.c2.oa.v_succ * fS_oa_c2
+        J_G_oa_c2 = (1.0 - self.c2.oa.a) * self.c2.oa.v_gluc * fG_oa_c2
 
         J_at_c2 = J_S_at_c2 + J_G_at_c2
         J_oa_c2 = J_S_oa_c2 + J_G_oa_c2
@@ -182,7 +182,6 @@ class Model:
         )
         species = []
         for i, c in enumerate([self.c1, self.c2]):
-            print(i)
             if (self.M_glucose != 0) and (self.M_succinate != 0):
                 customdata = np.column_stack([c.succinate, c.glucose])
                 hovertemplate = (
@@ -274,20 +273,3 @@ class Model:
         )
         fig = style_plot(fig, font_size=14, line_thickness=2)
         return fig
-
-
-"""xs = np.linspace(0, 100, 1000)
-p_f = path.join("parameters", f"parameters_{15}_mM_C.csv")
-params = pd.read_csv(p_f, index_col=0)
-at = Species("At", params.loc["At"])
-at.N0 = 0.221667
-at.a = 0.94736842
-oa = Species("Oa", params.loc["Oa"])
-oa.N0 = 0.0
-# oa.a = 0.0
-
-m = Model(at, oa, None, xs, 15, 0.3)
-m.integrate_model()
-fig = m.plot_at_oa()
-fig.write_image("tmp.svg")
-"""
