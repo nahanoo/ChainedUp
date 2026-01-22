@@ -9,18 +9,12 @@ from style import style_plot
 class Species:
     def __init__(self, name: str, row: pd.Series):
         self.name = name
-        self.v_succ_lag = float(row["v_succ_lag"])
-        self.v_gluc_lag = float(row["v_gluc_lag"])
         self.v_succ = float(row["v_succ"])
         self.v_gluc = float(row["v_gluc"])
         self.K_succ = float(row["K_succ"])
         self.K_gluc = float(row["K_gluc"])
         self.q_succ = float(row["q_succ"])
         self.q_gluc = float(row["q_gluc"])
-        self.lag_succ = float(row["lag_succ"])
-        self.lag_succ_width = float(row["lag_succ_width"])
-        self.lag_gluc = float(row["lag_gluc"])
-        self.lag_gluc_width = float(row["lag_gluc_width"])
         self.a = float(row["a"])
         self.N0 = float(row["N0"])
         self.y = None
