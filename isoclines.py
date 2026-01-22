@@ -69,6 +69,7 @@ def a_mono_culture():
                 symbol="triangle-up",
                 color=aas,
                 colorscale="cividis",
+                showscale=False,
                 colorbar=dict(
                     title="a",
                     len=0.55,  # height as fraction of plotting area
@@ -106,8 +107,11 @@ def a_mono_culture():
             # type="log"
         ),
         title="Mono-culture",
+        height=380,
+        width=380,
+        showlegend=False,
     )
-    fig = style_plot(fig, line_thickness=3, marker_size=10, font_size=font_size)
+    fig = style_plot(fig, line_thickness=3, marker_size=10, font_size=14)
     fig.write_image("plots/contours/mono_culture_resource_allocation.svg")
 
 
@@ -125,7 +129,6 @@ def resource_allocation_heatmap():
         suc_c1, gluc_c1, at_c1, oa_c1, suc_c2, gluc_c2, at_c2, oa_c2 = np.asarray(
             results
         ).T
-
     fig = make_subplots(
         rows=1,
         cols=2,
@@ -175,6 +178,29 @@ def resource_allocation_heatmap():
     )
     fig = style_plot(fig, font_size=12, line_thickness=2, top_margin=35)
     fig.write_image("plots/contours/coexistence_resource_allocation.svg")
+    fig_mono = go.Figure()
+    fig_mono.add_trace(
+        go.Heatmap(
+            x=aas,
+            y=aas,
+            z=z_c1,
+            colorscale="cividis",
+            colorbar=dict(
+                title="log<sub>10</sub>(At/Oa)",
+            ),
+            showscale=False,
+        ),
+    )
+    fig_mono.update_layout(
+        xaxis=dict(title="Resource allocation At", dtick=0.2),
+        xaxis2=dict(title="Resource allocation At", dtick=0.2),
+        yaxis=dict(title="Resource allocation Oa", dtick=0.2),
+        width=380,
+        height=380,
+        title="Coexistence in succinate-glucose space",
+    )
+    fig_mono = style_plot(fig_mono, font_size=14, line_thickness=2, top_margin=35)
+    fig_mono.write_image("plots/contours/coexistence_resource_allocation_mono.svg")
 
 
 def at_resource_allocation_steady_state():
@@ -196,7 +222,7 @@ def at_resource_allocation_steady_state():
             x=aas,
             y=at_c1,
             mode="lines+markers",
-            marker=dict(color=colors["Succinate"]),
+            marker=dict(color=colors["Succinate+Glucose"]),
             name="Chemostat 1",
         )
     )
@@ -205,7 +231,7 @@ def at_resource_allocation_steady_state():
             x=aas,
             y=at_c2,
             mode="lines+markers",
-            marker=dict(color=colors["Glucose"]),
+            marker=dict(color=colors["Succinate+Glucose Outflow"]),
             name="Downstream<br>Chemostat",
         )
     )
@@ -213,7 +239,9 @@ def at_resource_allocation_steady_state():
         xaxis=dict(title="Resource allocation At"),
         yaxis=dict(title="At steady state"),
         title="At steady state as function of resource allocation",
-        legend=dict(y=0.5, yanchor="middle", title="Chemostat position"),
+        legend=dict(y=0.55, x=0.5, yanchor="top", xanchor="center"),
+        height=190,
+        width=380,
     )
     fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
     fig.write_image("plots/contours/at_resource_allocation.svg")
@@ -267,3 +295,59 @@ def carbon_allocation():
     )
     fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
     fig.write_image("plots/contours/at_total_carbon.svg")
+
+
+def effective_allocation():
+    aas = np.linspace(0.0, 1.0, 20)
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    xs = np.linspace(0, 100, 1000)
+    with Pool() as pool:
+        args = [(conc, params, xs, "At", a_at) for a_at in aas]
+        results = pool.map(simulate_endpoints, args)
+        suc_c1, gluc_c1, at_c1, oa_c1, suc_c2, gluc_c2, at_c2, oa_c2 = np.asarray(
+            results
+        ).T
+    atp = params.loc["At"]
+    v_succ = float(atp["v_succ"])
+    K_succ = float(atp["K_succ"])
+    v_gluc = float(atp["v_gluc"])
+    K_gluc = float(atp["K_gluc"])
+
+    # fluxes at endpoints
+    J_S_1 = aas * v_succ * suc_c1 / (K_succ + suc_c1)
+    J_G_1 = (1 - aas) * v_gluc * gluc_c1 / (K_gluc + gluc_c1)
+
+    J_S_2 = aas * v_succ * suc_c2 / (K_succ + suc_c2)
+    J_G_2 = (1 - aas) * v_gluc * gluc_c2 / (K_gluc + gluc_c2)
+
+    a_eff_1 = J_S_1 / (J_S_1 + J_G_1)
+    a_eff_2 = J_S_2 / (J_S_2 + J_G_2)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=a_eff_1,
+            mode="lines+markers",
+            name="a_eff in C1",
+            marker=dict(color=colors["Succinate"]),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=aas,
+            y=a_eff_2,
+            mode="lines+markers",
+            name="a_eff in C2",
+            marker=dict(color=colors["Glucose"]),
+        )
+    )
+    fig.update_layout(
+        xaxis_title="parameter a (At)",
+        yaxis_title="effective allocation a_eff = J_S / (J_S + J_G)",
+        title="Allocation parameter vs realized uptake split",
+    )
+    fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
+    fig.write_image("plots/contours/at_effective_allocation.svg")
