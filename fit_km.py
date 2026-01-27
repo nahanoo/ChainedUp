@@ -5,6 +5,7 @@ from scipy.integrate import solve_ivp
 import lmfit
 from experiment import Experiment
 import plotly.graph_objects as go
+import pandas as pd
 
 
 def sort_unique_xy(t, y, how="mean"):
@@ -116,14 +117,45 @@ def fit_Km_lmfit(
     return result
 
 
+"""
 # --- run ---
 e = Experiment(d="data/251018_succinate_glucose_plate_reader/metaod/")
 conc = 15
 sp = "Oa"
 cond = e.get_condition([sp], "Succinate", conc, "OD")
-df, ys = condition_to_df(cond, sp, x0=0, x1=27)
+df, ys = condition_to_df(cond, sp, x0=0, x1=27)"""
 
-models = fit_curveball(df, ys)
+df = pd.read_csv(
+    "/home/eric/ChiBioFlow/data/at_oa/250328_ct_oa_thiamine_gradient/data/metadata.csv"
+)
+df_ct = df[
+    (df["exp_ID"] == "ct_oa_chemostat_project/_thiamine_gradient")
+    & (df["species"] == "Comamonas testosteroni")
+    & (df["comments"] == "10000 nM thiamine")
+]
+df_oa = df[
+    (df["exp_ID"] == "ct_oa_chemostat_project/_thiamine_gradient")
+    & (df["species"] == "Ochrobactrum anthropi")
+    & (df["comments"] == "10000 nM thiamine")
+]
+data = pd.read_csv(
+    "/home/eric/ChiBioFlow/data/at_oa/250328_ct_oa_thiamine_gradient/data/measurements.csv"
+)
+dfs = []
+for lg in df_ct["linegroup"]:
+    df = pd.DataFrame(columns=["Time", "OD", "Well", "Species"])
+    x = data[lg + "_time"]
+    y = data[lg + "_measurement"]
+    df["Time"], df["OD"], df["Well"], df["Species"] = (
+        x,
+        y,
+        [lg] * len(x),
+        ["Ct"] * len(x),
+    )
+    dfs.append(df)
+ys = np.array([sub["OD"].to_numpy() for _, sub in pd.concat(dfs).groupby("Well")])
+conc = 7.5
+models = fit_curveball(pd.concat(dfs), ys)
 fit = models[2]
 params = fit.params
 
