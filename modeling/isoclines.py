@@ -351,3 +351,71 @@ def effective_allocation():
     )
     fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
     fig.write_image("plots/contours/at_effective_allocation.svg")
+
+
+conc = 15
+p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+params = pd.read_csv(p_f, index_col=0)
+at = Species("At", params.loc["At"])
+oa = Species("Oa", params.loc["Oa"])
+at.a = 1
+oa.a = 0.4
+JAt = at.a * at.v_succ * conc / (at.K_succ + conc) + (1 - at.a) * at.v_gluc * conc / (
+    at.K_gluc + conc
+)
+JOa = oa.a * oa.v_succ * conc / (oa.K_succ + conc) + (1 - oa.a) * oa.v_gluc * conc / (
+    oa.K_gluc + conc
+)
+s_concs = np.linspace(0, 3.75, 100)
+g_concs = np.linspace(0, 2.5, 100)
+s_grid, g_grid = np.meshgrid(s_concs, g_concs)
+JAt_grid = at.a * at.v_succ * s_grid / (at.K_succ + s_grid) + (
+    1 - at.a
+) * at.v_gluc * g_grid / (at.K_gluc + g_grid)
+JOa_grid = oa.a * oa.v_succ * s_grid / (oa.K_succ + s_grid) + (
+    1 - oa.a
+) * oa.v_gluc * g_grid / (oa.K_gluc + g_grid)
+fig = go.Figure()
+fig.add_trace(
+    go.Contour(
+        x=s_concs,
+        y=g_concs,
+        z=JAt_grid,
+        contours=dict(
+            value=0.3,
+            coloring="none",
+            operation="=",
+            showlines=True,
+            type="constraint",
+        ),
+        line=dict(width=2, color="red"),
+        name="At",
+        showscale=False,
+    )
+)
+fig.add_trace(
+    go.Contour(
+        x=s_concs,
+        y=g_concs,
+        z=JOa_grid,
+        contours=dict(
+            type="constraint",
+            value=0.3,
+            operation="=",
+            coloring="none",
+            showlines=True,
+        ),
+        line=dict(width=2, color="blue"),
+        name="Oa",
+        showscale=False,
+    )
+)
+fig.update_layout(
+    xaxis_title="Succinate [mM]",
+    yaxis_title="Glucose [mM]",
+    title="Isoclines of At and Oa uptake fluxes",
+    width=380,
+    height=380,
+)
+fig = style_plot(fig, font_size=14, line_thickness=2)
+fig.write_image("plots/contours/isoclines.svg")

@@ -247,7 +247,7 @@ def update_figures(
 
     # At mono-culture
     oa.N0 = 0.0
-    at.N0 = 0.1
+    at.N0 = 0.2
     model = Model(at, oa, None, xs, conc, D)
     model.M_glucose = 0.0
     model.integrate_model()
@@ -277,7 +277,7 @@ def update_figures(
 
     # Oa mono-culture
     at.N0 = 0.0
-    oa.N0 = 0.1
+    oa.N0 = 0.2
     oa.a = 1
     model = Model(at, oa, None, xs, conc, D)
     model.M_glucose = 0.0
@@ -307,7 +307,7 @@ def update_figures(
     )
 
     # At + Oa co-culture
-    at.N0, oa.N0 = 0.05, 0.05
+    at.N0, oa.N0 = 0.2, 0.2
     at.a = 1
     oa.a = 1
     model = Model(at, oa, None, xs, conc, D)
