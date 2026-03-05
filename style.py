@@ -1,23 +1,18 @@
+from plotly.express.colors import qualitative as qualitative
+
 width, height = 180, 180
 colors = {
-    "blue": "#000080",
-    "ct": "#e1812c",
-    "oa": "#c03d3e",
-    "ms": "#3274a1",
-    "at": "#3b923b",
-    "Ct": "#e1812c",
-    "Oa": "#c03d3e",
-    "Ml": "#3274a1",
-    "At": "#3b923b",
-    "At+Oa": "#7e683c",
-    "Spent media Ct": "#1B9E77",
-    "Spent media Oa": "#E7298A",
-    "H20": "gray",
-    "Succinate": "#0B2F7A",
-    "Glucose": "#8B8C6D",
-    "Succinate+Glucose": "#375C8D",
-    "Succinate+Glucose Outflow": "#FDE724",
-    "Total": "purple",
+    "At": qualitative.Bold[1],
+    "at": qualitative.Bold[1],
+    "Oa": qualitative.Bold[8],
+    "oa": qualitative.Bold[8],
+    "succinate": qualitative.Bold[5],
+    "Succinate": qualitative.Bold[5],
+    "glucose": qualitative.Bold[6],
+    "Glucose": qualitative.Bold[6],
+    "succinate glucose": qualitative.Bold[0],
+    "Succinate Glucose": qualitative.Bold[0],
+    "Ribose": qualitative.Bold[2],
 }
 
 

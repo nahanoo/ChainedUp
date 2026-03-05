@@ -97,22 +97,22 @@ class Model:
             customdata = np.column_stack([self.succinate, self.glucose])
             hovertemplate = (
                 "Time: %{x:.2f} hours<br>"
-                "Succinate: %{customdata[0]:.2f} mM<br>"
-                "Glucose: %{customdata[1]:.2f} mM<br>"
+                "Succinate: %{customdata[0]:.6f} mM<br>"
+                "Glucose: %{customdata[1]:.6f} mM<br>"
                 "<extra></extra>"
             )
         elif (self.M_glucose != 0) and (self.M_succinate == 0):
             customdata = self.glucose
             hovertemplate = (
                 "Time: %{x:.2f} hours<br>"
-                "Glucose: %{customdata:.2f} mM<br>"
+                "Glucose: %{customdata:.6f} mM<br>"
                 "<extra></extra>"
             )
         elif (self.M_glucose == 0) and (self.M_succinate != 0):
             customdata = self.succinate
             hovertemplate = (
                 "Time: %{x:.2f} hours<br>"
-                "Succinate: %{customdata:.2f} mM<br>"
+                "Succinate: %{customdata:.6f} mM<br>"
                 "<extra></extra>"
             )
         if self.at.y[0] != 0:

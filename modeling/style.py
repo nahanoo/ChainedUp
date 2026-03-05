@@ -1,1 +1,1 @@
-style.py
+../style.py
