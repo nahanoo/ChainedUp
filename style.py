@@ -2,16 +2,17 @@ from plotly.express.colors import qualitative as qualitative
 
 width, height = 180, 180
 colors = {
-    "At": qualitative.Bold[1],
-    "at": qualitative.Bold[1],
-    "Oa": qualitative.Bold[8],
-    "oa": qualitative.Bold[8],
+    "At": qualitative.Bold[2],
+    "at": qualitative.Bold[2],
+    "Oa": qualitative.Bold[4],
+    "oa": qualitative.Bold[4],
     "succinate": qualitative.Bold[5],
     "Succinate": qualitative.Bold[5],
     "glucose": qualitative.Bold[6],
     "Glucose": qualitative.Bold[6],
     "succinate glucose": qualitative.Bold[0],
     "Succinate Glucose": qualitative.Bold[0],
+    "Succinate+Glucose": qualitative.Bold[3],
     "Ribose": qualitative.Bold[2],
 }
 
