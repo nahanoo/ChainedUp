@@ -1,0 +1,2 @@
+a_succinate,a_glucose,dilution_rate,time_max,success,cost,message,mumax_succinate,km_succinate,yield_succinate,mumax_glucose,km_glucose,yield_glucose
+0.21018537514402252,0.7898146248559774,0.3,60,True,1.2483721243786874,`ftol` termination condition is satisfied.,0.877,0.0028490199004357,563511127.7833669,0.573,5.855244439302568,13739015.195518391

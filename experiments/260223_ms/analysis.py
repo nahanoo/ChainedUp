@@ -56,16 +56,16 @@ def plot_calibration_curves():
         ),
         legend=dict(
             yanchor="top",
-            y=0.95,
+            y=1,
             xanchor="left",
-            x=0.05,
-            bgcolor="rgba(255,255,255,1)",
+            x=0.0,
+            bgcolor="rgba(255,255,255,0)",
         ),
-        width=300,
-        height=200,
+        width=250,
+        height=180,
         title="Calibration Curves P1",
     )
-    fig = style_plot(fig, marker_size=10, line_thickness=3, font_size=14)
+    fig = style_plot(fig, marker_size=8, line_thickness=3, font_size=11)
     fig.write_image("plots/calibration_curves_p1.svg")
 
     fig = go.Figure()
@@ -115,6 +115,9 @@ def plot_calibration_curves():
     )
     fig = style_plot(fig, marker_size=10, line_thickness=3, font_size=14)
     fig.write_image("plots/calibration_curves_p2.svg")
+
+
+plot_calibration_curves()
 
 
 def plot_all_conditions(cond):
@@ -248,7 +251,3 @@ def plot_all_conditions(cond):
                 align="left",
             )
         fig.write_image(f"plots/{fname}")
-
-
-plot_all_conditions(cond)
-plot_calibration_curves()

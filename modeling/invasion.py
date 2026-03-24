@@ -102,8 +102,8 @@ def update_layout(fig, title, yaxis_title):
         title=title,
         xaxis=dict(title="Time (h)", range=[0, 100], dtick=50),
         yaxis=dict(title=yaxis_title),
-        width=250,
-        height=150,
+        width=145,
+        height=135,
     )
     fig = style_plot(fig, line_thickness=3)
     return fig
@@ -126,6 +126,14 @@ def resident_species_resources():
     fig = plot_resources(fig, t, G, "Glucose")
     fig = update_layout(fig, "Resident resources (specialist)", "Concentration (mM)")
     fig.write_image("plots/invasion/resident_resources_specialist.svg")
+
+    t, y = simulate(t0=0, ti=10, t_end=200, y0=y0, a=1, N2_inoc=0)
+    N1, N2, S, G = y
+    fig = go.Figure()
+    fig = plot_resources(fig, t, S, "Succinate")
+    fig = plot_resources(fig, t, G, "Glucose")
+    fig = update_layout(fig, "Resident resources (specialist)", "Concentration (mM)")
+    fig.write_image("plots/invasion/resident_resources_specialist_succinate.svg")
 
 
 def invasion_dynamics():

@@ -7,6 +7,7 @@ import pandas as pd
 from os import path
 from multiprocessing import Pool
 from plotly.subplots import make_subplots
+from scipy.optimize import least_squares
 
 font_size = 14
 
@@ -100,11 +101,13 @@ def a_mono_culture():
     fig.update_layout(
         xaxis=dict(
             title="Succinate [mM]",
-            # type="log"
+            type="log",
+            exponentformat="power",
         ),
         yaxis=dict(
             title="Glucose [mM]",
-            # type="log"
+            type="log",
+            exponentformat="power",
         ),
         title="Mono-culture",
         height=430,
@@ -112,10 +115,7 @@ def a_mono_culture():
         showlegend=True,
     )
     fig = style_plot(fig, line_thickness=3, marker_size=10, font_size=14)
-    fig.write_image("../plots/contours/mono_culture_resource_allocation.svg")
-
-
-a_mono_culture()
+    fig.write_image("plots/contours/mono_culture_resource_allocation.svg")
 
 
 def resource_allocation_heatmap():
@@ -354,3 +354,282 @@ def effective_allocation():
     )
     fig = style_plot(fig, font_size=12, marker_size=8, line_thickness=2)
     fig.write_image("plots/contours/at_effective_allocation.svg")
+
+
+def compute_fluxes(S_grid, G_grid, sp):
+    return sp.a * sp.v_succ * S_grid / (sp.K_succ + S_grid) + (
+        1 - sp.a
+    ) * sp.v_gluc * G_grid / (sp.K_gluc + G_grid)
+
+
+def feed_from_conc(conc):
+    # same mapping as your Model class
+    C_to_mM_succinate = {45: 11.25, 30: 7.5, 15: 3.75, 7.5: 1.875, 5: 1.25, 2.5: 0.625}
+    C_to_mM_glucose = {45: 7.5, 30: 5, 15: 2.5, 7.5: 1.25, 5: 0.833, 2.5: 0.417}
+    return C_to_mM_succinate[conc], C_to_mM_glucose[conc]  # (S0, G0)
+
+
+def steady_state_Rstar_fixed_a(sp, *, a, D, S0, G0):
+    """
+    Compute (S*, G*) for a monoculture chemostat at fixed allocation a.
+
+    Model:
+      J_S = a*v_succ*s/(K_succ+s)
+      J_G = (1-a)*v_gluc*g/(K_gluc+g)
+      J = J_S + J_G
+
+    Steady state with N>0:
+      (1) J(S*,G*) = D
+      (2) N inferred from glucose balance equals N inferred from succinate balance:
+          D(G0-G*) q_gluc / J_G  =  D(S0-S*) q_succ / J_S
+    """
+    sp.a = a
+
+    J_max = sp.a * sp.v_succ + (1.0 - sp.a) * sp.v_gluc
+    if D >= J_max:
+        raise ValueError(f"Washout: D={D} >= J_max={J_max:.3g} for a={a}")
+
+    def J_S(s):
+        return sp.a * sp.v_succ * s / (sp.K_succ + s)
+
+    def J_G(g):
+        return (1.0 - sp.a) * sp.v_gluc * g / (sp.K_gluc + g)
+
+    def residual(x):
+        s, g = x  # NOTE: order matches plot axes (x=succinate, y=glucose)
+        js = J_S(s)
+        jg = J_G(g)
+        j = js + jg
+
+        r1 = j - D
+
+        eps = 1e-12
+        # N* from each resource balance (same as in your chemostat equations)
+        N_from_g = D * (G0 - g) * sp.q_gluc / (jg + eps)
+        N_from_s = D * (S0 - s) * sp.q_succ / (js + eps)
+        r2 = N_from_g - N_from_s
+
+        return np.array([r1, r2], dtype=float)
+
+    # initial guess: small succinate (since Km is tiny) and moderate glucose
+    x0 = np.array([min(S0, 1e-2), 0.5 * G0], dtype=float)
+
+    res = least_squares(
+        residual,
+        x0=x0,
+        bounds=([0.0, 0.0], [S0, G0]),
+        xtol=1e-12,
+        ftol=1e-12,
+        gtol=1e-12,
+    )
+    s_star, g_star = res.x
+    return float(s_star), float(g_star)
+
+
+def plot_isoclines():
+    conc = 15
+    level = 0.3  # this is your ZNGI/isocline level; interpret as D (1/h) for R*
+    D = level
+    allocation = 0.5
+
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+    oa = Species("Oa", params.loc["Oa"])
+    sp = oa
+
+    S0, G0 = 10, 1.5
+
+    names = ["Glucose", "Succinate+Glucose", "Succinate"]
+    a_values = [0.0, allocation, 1.0]
+
+    fig = go.Figure()
+
+    # log grid for succinate to resolve Km ~ 1e-3
+    S_concs = np.logspace(-6, np.log10(S0), 250)
+    # keep glucose linear (you can switch to log similarly if you want)
+    G_concs = np.linspace(0.0, G0, 250)
+
+    S_grid, G_grid = np.meshgrid(S_concs, G_concs)
+
+    for i, a in enumerate(a_values):
+        name = names[i]
+        sp.a = a
+        flux_grid = compute_fluxes(S_grid, G_grid, sp)
+
+        fig.add_trace(
+            go.Contour(
+                x=S_concs,
+                y=G_concs,
+                z=flux_grid,
+                contours=dict(
+                    type="constraint",
+                    operation="=",
+                    value=level,
+                    coloring="none",
+                    showlines=True,
+                ),
+                line=dict(width=2, color=colors[name]),
+                showscale=False,
+                name=f"{name}: a={a:.1f}",
+                hoverinfo="skip",
+            )
+        )
+
+    # ---- Add the chemostat steady-state point (R*) for a=0.5 only ----
+    a_star = allocation
+    s_star, g_star = steady_state_Rstar_fixed_a(sp, a=a_star, D=D, S0=S0, G0=G0)
+
+    fig.add_trace(
+        go.Scatter(
+            x=[s_star],
+            y=[g_star],
+            mode="markers+text",
+            marker=dict(size=11, color=colors["Succinate+Glucose"], line=dict(width=1)),
+            text=[f"$S^*={s_star:.2g}, G^*={g_star:.2g}$"],
+            textposition="top left",
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
+
+    # Optional: show the feed point for context
+    fig.add_trace(
+        go.Scatter(
+            x=[S0],
+            y=[G0],
+            mode="markers+text",
+            marker=dict(size=9, color="rgba(80,80,80,0.9)"),
+            text=["Feed"],
+            textposition="bottom right",
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
+
+    fig.update_layout(
+        xaxis=dict(title="Succinate [mM]", type="log", exponentformat="power"),
+        yaxis=dict(title="Glucose [mM]"),
+        legend=dict(
+            yref="paper",
+            xref="paper",
+            x=0.99,
+            y=0.99,
+            xanchor="right",
+            yanchor="top",
+            bgcolor="rgba(255,255,255,0.5)",
+        ),
+        width=400,
+        height=360,
+    )
+
+    fig = style_plot(fig, font_size=font_size, line_thickness=3, marker_size=10)
+    fig.write_image("plots/contours/isoclines_f_a.svg")
+    return fig
+
+
+plot_isoclines()
+
+
+def G_required_for_level(S, sp, level):
+    """
+    For each S, solve for G such that:
+        a*v_succ*S/(K_succ+S) + (1-a)*v_gluc*G/(K_gluc+G) = level
+
+    Returns G(S) (NaN where infeasible).
+    """
+    S = np.asarray(S, dtype=float)
+    G = np.full_like(S, np.nan, dtype=float)
+
+    # succinate contribution
+    J_S = sp.a * sp.v_succ * S / (sp.K_succ + S)
+
+    # remaining needed from glucose
+    rem = level - J_S
+
+    # If rem <= 0, succinate alone already achieves the level (any G>=0 works)
+    # Here we set G=0 to visualize "glucose can be driven to ~0".
+    mask_zero = rem <= 0
+    G[mask_zero] = 0.0
+
+    # If rem >= max glucose contribution, infeasible (no solution)
+    JG_max = (1 - sp.a) * sp.v_gluc
+    mask_bad = rem > JG_max
+    # keep NaN
+
+    # Solve Monod explicitly for the feasible region: rem in (0, JG_max]
+    mask = (rem > 0) & (rem <= JG_max)
+
+    # rem = (1-a)*v_gluc * G/(K+G)  ->  G = rem*K / (JG_max - rem)
+    K = sp.K_gluc
+    G[mask] = rem[mask] * K / (JG_max - rem[mask])
+
+    return G
+
+
+def plot_required_glucose_vs_succinate():
+    conc = 15
+    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    params = pd.read_csv(p_f, index_col=0)
+
+    oa = Species("Oa", params.loc["Oa"])
+    sp = oa
+
+    level = 0.3
+    a_values = [0.0, 0.5, 1.0]
+    names = ["Glucose", "Succinate+Glucose", "Succinate"]
+
+    # Use a log grid for succinate to resolve Km ~ 1e-3
+    S = np.logspace(-6, np.log10(3.75), 400)
+
+    fig = go.Figure()
+
+    for i, a in enumerate(a_values):
+        sp.a = a
+        name = names[i]
+
+        G_req = G_required_for_level(S, sp, level)
+
+        fig.add_trace(
+            go.Scatter(
+                x=S,
+                y=G_req,
+                mode="lines",
+                line=dict(width=2, color=colors[name]),
+                name=f"{name}: a={a:.1f}",
+                hoverinfo="skip",
+            )
+        )
+
+    # Reference lines at Km
+    fig.add_vline(
+        x=sp.K_succ,
+        line=dict(width=2, dash="dash", color="rgba(80,80,80,0.8)"),
+        annotation_text="K_succ",
+        annotation_position="top left",
+    )
+    fig.add_hline(
+        y=sp.K_gluc,
+        line=dict(width=2, dash="dash", color="rgba(80,80,80,0.8)"),
+        annotation_text="K_gluc",
+        annotation_position="bottom right",
+    )
+
+    fig.update_layout(
+        title=f"Required glucose along isocline (J={level}) vs succinate",
+        xaxis=dict(title="Succinate [mM]", type="log", exponentformat="power"),
+        yaxis=dict(title="Glucose required [mM]"),
+        legend=dict(
+            yref="paper",
+            xref="paper",
+            x=0.99,
+            y=0.99,
+            xanchor="right",
+            yanchor="top",
+            bgcolor="rgba(255,255,255,0.5)",
+        ),
+        width=200 * 2,
+        height=180 * 2,
+    )
+
+    fig = style_plot(fig, font_size=font_size, line_thickness=3, marker_size=10)
+    fig.write_image("plots/contours/required_glucose_vs_succinate.svg")
