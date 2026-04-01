@@ -13,10 +13,14 @@ from style import *
 DILUTION_RATE = 0.3
 TIME_MAX = 100
 
+MANUAL_A = True
+A_AT = 0.5
+A_OA = 0.3
+
 # Set to False to fit one constant allocation for each species.
 # Set to True to fit one allocation before SWITCH_TIME and one after.
 USE_SWITCH = False
-SWITCH_TIME = 60
+SWITCH_TIME = 40
 
 MONO_PARAMETER_CSV = "parameterization_results.csv"
 OUTPUT_DIR = "plots/allocation"
@@ -586,6 +590,54 @@ def fit_two_phase_allocation(coculture_data, mono_params, dilution_rate, switch_
     }
 
 
+def simulate_manual_allocation(coculture_data, mono_params, dilution_rate, a_at, a_oa):
+    times = coculture_data["times"]
+    at_obs = coculture_data["at_obs"]
+    oa_obs = coculture_data["oa_obs"]
+    s_obs = coculture_data["succinate_obs"]
+    g_obs = coculture_data["glucose_obs"]
+
+    y0 = [
+        float(at_obs[0]),
+        float(oa_obs[0]),
+        float(s_obs[0]),
+        float(g_obs[0]),
+    ]
+    s_in = float(s_obs[0])
+    g_in = float(g_obs[0])
+
+    t_sim = np.linspace(times[0], times[-1], 400)
+    at_sim, oa_sim, s_sim, g_sim = simulate_segment(
+        t_start=times[0],
+        y0=y0,
+        times_eval=t_sim,
+        a_at=a_at,
+        a_oa=a_oa,
+        mono_params=mono_params,
+        dilution_rate=dilution_rate,
+        s_in=s_in,
+        g_in=g_in,
+    )
+
+    return {
+        "mode": "manual",
+        "times": times,
+        "at_obs": at_obs,
+        "oa_obs": oa_obs,
+        "succinate_obs": s_obs,
+        "glucose_obs": g_obs,
+        "a_at": a_at,
+        "a_oa": a_oa,
+        "s_in": s_in,
+        "g_in": g_in,
+        "t_sim": t_sim,
+        "at_sim": at_sim,
+        "oa_sim": oa_sim,
+        "succinate_sim": s_sim,
+        "glucose_sim": g_sim,
+    }
+
+
 def make_cfu_plot(fit):
     fig = go.Figure()
 
@@ -655,7 +707,7 @@ def make_cfu_plot(fit):
             title="CFU/mL",
             type="log",
             exponentformat="power",
-            range=[6, 10],
+            range=[4, 10],
         ),
     )
 
@@ -767,7 +819,32 @@ def main():
 
     coculture_data = prepare_coculture_data(resource_df=resource_df, cfu_df=cfu_df)
 
-    if USE_SWITCH:
+    if MANUAL_A:
+        fit = simulate_manual_allocation(
+            coculture_data=coculture_data,
+            mono_params=mono_params,
+            dilution_rate=DILUTION_RATE,
+            a_at=A_AT,
+            a_oa=A_OA,
+        )
+
+        result_row = {
+            "mode": "manual",
+            "time_max": TIME_MAX,
+            "dilution_rate": DILUTION_RATE,
+            "a_at_succinate": fit["a_at"],
+            "a_at_glucose": 1 - fit["a_at"],
+            "a_oa_succinate": fit["a_oa"],
+            "a_oa_glucose": 1 - fit["a_oa"],
+            **flatten_mono_params(mono_params),
+        }
+
+        print(f"\nManual At succinate allocation = {fit['a_at']:.6f}")
+        print(f"Manual At glucose allocation   = {1 - fit['a_at']:.6f}")
+        print(f"Manual Oa succinate allocation = {fit['a_oa']:.6f}")
+        print(f"Manual Oa glucose allocation   = {1 - fit['a_oa']:.6f}")
+
+    elif USE_SWITCH:
         fit = fit_two_phase_allocation(
             coculture_data=coculture_data,
             mono_params=mono_params,
@@ -797,15 +874,6 @@ def main():
             **flatten_mono_params(mono_params),
         }
 
-        print(f"\nAt pre-switch succinate allocation  = {fit['a_at_pre']:.6f}")
-        print(f"At pre-switch glucose allocation    = {1 - fit['a_at_pre']:.6f}")
-        print(f"Oa pre-switch succinate allocation  = {fit['a_oa_pre']:.6f}")
-        print(f"Oa pre-switch glucose allocation    = {1 - fit['a_oa_pre']:.6f}")
-        print(f"At post-switch succinate allocation = {fit['a_at_post']:.6f}")
-        print(f"At post-switch glucose allocation   = {1 - fit['a_at_post']:.6f}")
-        print(f"Oa post-switch succinate allocation = {fit['a_oa_post']:.6f}")
-        print(f"Oa post-switch glucose allocation   = {1 - fit['a_oa_post']:.6f}")
-
     else:
         fit = fit_single_phase_allocation(
             coculture_data=coculture_data,
@@ -826,11 +894,6 @@ def main():
             "message": fit["message"],
             **flatten_mono_params(mono_params),
         }
-
-        print(f"\nAt succinate allocation = {fit['a_at']:.6f}")
-        print(f"At glucose allocation   = {1 - fit['a_at']:.6f}")
-        print(f"Oa succinate allocation = {fit['a_oa']:.6f}")
-        print(f"Oa glucose allocation   = {1 - fit['a_oa']:.6f}")
 
     results_df = pd.DataFrame([result_row])
     results_df.to_csv(output_paths["result_csv"], index=False)

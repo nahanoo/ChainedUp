@@ -117,9 +117,6 @@ def plot_calibration_curves():
     fig.write_image("plots/calibration_curves_p2.svg")
 
 
-plot_calibration_curves()
-
-
 def plot_all_conditions(cond):
     conds = [
         cond.AT_SUCCINATE,

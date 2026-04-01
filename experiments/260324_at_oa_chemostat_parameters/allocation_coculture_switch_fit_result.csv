@@ -1,0 +1,2 @@
+mode,time_max,dilution_rate,a_at_succinate,a_at_glucose,a_oa_succinate,a_oa_glucose,mumax_at_succinate,km_at_succinate,yield_at_succinate,mumax_at_glucose,km_at_glucose,yield_at_glucose,mumax_oa_succinate,km_oa_succinate,yield_oa_succinate,mumax_oa_glucose,km_oa_glucose,yield_oa_glucose
+manual,100,0.3,0.8,0.19999999999999996,0.5,0.5,0.651,0.0026,21000000.0,0.696,10.4472917115074,3904879.75896138,0.877,0.0028490199004357,563511127.783367,0.573,5.85524443930257,13739015.1955184

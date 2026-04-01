@@ -14,9 +14,12 @@ DILUTION_RATE = 0.3
 OUTPUT_DIR = "plots/parameterization"
 PARAMETER_CSV = "parameterization_results.csv"
 
+AT_GLUCOSE_MUMAX = 0.696  # set this to the fitted mu_max for At on glucose
+
 
 SPECS = {
-    "succinate": {
+    "oa_succinate": {
+        "species": "oa",
         "wells": cond.OA_SUCCINATE,
         "times": np.array(cond.OA_TIMEPOINTS, dtype=float),
         "substrate_col": "succinate_area_normalized",
@@ -29,7 +32,8 @@ SPECS = {
         "cfu_fname": "oa_succinate_cfu_fit.svg",
         "resource_fname": "oa_succinate_resource_fit.svg",
     },
-    "glucose": {
+    "oa_glucose": {
+        "species": "oa",
         "wells": cond.OA_GLUCOSE,
         "times": np.array(cond.OA_TIMEPOINTS, dtype=float),
         "substrate_col": "glucose_area_normalized",
@@ -41,6 +45,20 @@ SPECS = {
         "resource_title": "Oa Glucose",
         "cfu_fname": "oa_glucose_cfu_fit.svg",
         "resource_fname": "oa_glucose_resource_fit.svg",
+    },
+    "at_glucose": {
+        "species": "at",
+        "wells": cond.AT_SUCCINATE_GLUCOSE,
+        "times": np.array(cond.AT_TIMEPOINTS, dtype=float),
+        "substrate_col": "glucose_area_normalized",
+        "reactor": "Glucose",
+        "mumax": AT_GLUCOSE_MUMAX,
+        "label": "Glucose",
+        "color_key": "Glucose",
+        "cfu_title": "At Glucose",
+        "resource_title": "At Glucose",
+        "cfu_fname": "at_glucose_cfu_fit.svg",
+        "resource_fname": "at_glucose_resource_fit.svg",
     },
 }
 
@@ -79,7 +97,15 @@ def simulate(times, n0, s0, mumax, km, yld, dilution_rate, s_in):
     return sol.y[0], sol.y[1]
 
 
-def prepare_condition_data(resource_df, cfu_df, wells, times, substrate_col, reactor):
+def prepare_condition_data(
+    resource_df,
+    cfu_df,
+    wells,
+    times,
+    substrate_col,
+    reactor,
+    species,
+):
     substrate_df = pd.DataFrame(
         {
             "time": times,
@@ -88,7 +114,10 @@ def prepare_condition_data(resource_df, cfu_df, wells, times, substrate_col, rea
     )
 
     biomass_df = (
-        cfu_df[(cfu_df["species"].str.lower() == "oa") & (cfu_df["reactor"] == reactor)]
+        cfu_df[
+            (cfu_df["species"].str.lower() == species.lower())
+            & (cfu_df["reactor"] == reactor)
+        ]
         .groupby("sample_time", as_index=False)["average"]
         .mean()
         .rename(columns={"sample_time": "time", "average": "n_obs"})
@@ -101,7 +130,9 @@ def prepare_condition_data(resource_df, cfu_df, wells, times, substrate_col, rea
     )
 
     if merged.empty:
-        raise ValueError(f"No overlapping timepoints found for reactor {reactor!r}.")
+        raise ValueError(
+            f"No overlapping timepoints found for species={species!r}, reactor={reactor!r}."
+        )
 
     return (
         merged["time"].to_numpy(dtype=float),
@@ -222,7 +253,7 @@ def make_cfu_fit_plot(fit, spec):
             x=0.95,
             bgcolor="rgba(255,255,255,0)",
         ),
-        xaxis=dict(title="Time (h)", range=[0, 100], dtick=25),
+        xaxis=dict(title="Time (h)"),
         yaxis=dict(
             title="CFU/mL",
             type="log",
@@ -278,7 +309,7 @@ def make_resource_fit_plot(fit, spec):
             x=0.95,
             bgcolor="rgba(255,255,255,0)",
         ),
-        xaxis=dict(title="Time (h)", range=[0, 100], dtick=25),
+        xaxis=dict(title="Time (h)"),
         yaxis=dict(
             title="Area",
             type="log",
@@ -290,7 +321,18 @@ def make_resource_fit_plot(fit, spec):
     return fig
 
 
+def validate_specs(specs):
+    missing_mumax = [name for name, spec in specs.items() if spec["mumax"] is None]
+    if missing_mumax:
+        raise ValueError(
+            "Missing mumax for the following conditions: "
+            + ", ".join(missing_mumax)
+            + ". Set AT_GLUCOSE_MUMAX before running."
+        )
+
+
 def main():
+    validate_specs(SPECS)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     resource_df = pd.read_csv("normalized_data.csv", index_col="id")
@@ -306,6 +348,7 @@ def main():
             times=spec["times"],
             substrate_col=spec["substrate_col"],
             reactor=spec["reactor"],
+            species=spec["species"],
         )
 
         fit = fit_condition(
@@ -319,6 +362,9 @@ def main():
         results.append(
             {
                 "condition": name,
+                "species": spec["species"],
+                "reactor": spec["reactor"],
+                "substrate": spec["label"],
                 "mumax": spec["mumax"],
                 "Km": fit["km"],
                 "yield": fit["yield"],

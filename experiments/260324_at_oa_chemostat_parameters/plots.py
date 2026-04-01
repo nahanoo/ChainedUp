@@ -54,12 +54,12 @@ def make_resource_figure(df, wells, xs, ys, title, x_range, dtick):
 
     fig.update_layout(
         width=200,
-        height=180,
+        height=150,
         legend=dict(
             yanchor="top",
-            y=0.95,
+            y=1,
             xanchor="right",
-            x=0.95,
+            x=0.99,
             bgcolor="rgba(255,255,255,0)",
         ),
         xaxis=dict(title="Time (h)", range=x_range, dtick=dtick),
@@ -69,7 +69,7 @@ def make_resource_figure(df, wells, xs, ys, title, x_range, dtick):
             exponentformat="power",
         ),
         title=title,
-        showlegend=False,
+        showlegend=True,
     )
 
     fig = style_plot(fig, marker_size=8, line_thickness=3, font_size=11)
@@ -174,13 +174,138 @@ def plot_cfus():
             ),
             title=f"CFUs/mL Oa in {cs_name.lower()}",
             width=200,
-            height=180,
+            height=150,
             showlegend=False,
         )
 
         fig = style_plot(fig, line_thickness=2, marker_size=8, font_size=11)
         fname = f"cfu_{cs_name.lower()}.svg"
         fig.write_image(f"plots/cfus/{fname}")
+
+
+def plot_coculture_resources():
+    df = pd.read_csv("normalized_data.csv", index_col="id")
+
+    wells = cond.ATOA_SUCCINATE_GLUCOSE
+    xs = cond.AT_OA_TIMEPOINTS
+    ys = ["succinate_area_normalized", "glucose_area_normalized"]
+
+    fig = make_resource_figure(
+        df=df,
+        wells=wells,
+        xs=xs,
+        ys=ys,
+        title="At Oa Succinate Glucose",
+        x_range=[0, 100],
+        dtick=25,
+    )
+    fig.write_image("plots/resources/atoa_succinate_glucose.svg")
+
+    fig_zoom = make_resource_figure(
+        df=df,
+        wells=wells,
+        xs=xs,
+        ys=ys,
+        title="At Oa Succinate Glucose (0–60 h)",
+        x_range=[0, 60],
+        dtick=20,
+    )
+    fig_zoom.write_image("plots/resources/atoa_succinate_glucose_0_60.svg")
+
+
+def plot_coculture_cfus():
+    df = pd.read_csv("cfus.csv")
+    df = df[df["reactor"] == "Succinate+Glucose"]
+    df = df[df["species"].isin(["at_coculture", "oa_coculture"])]
+
+    species_map = {
+        "at_coculture": "At",
+        "oa_coculture": "Oa",
+    }
+
+    fig = go.Figure()
+
+    for species in ["at_coculture", "oa_coculture"]:
+        sub = df[df["species"] == species].sort_values("sample_time")
+        label = species_map[species]
+
+        fig.add_trace(
+            go.Scatter(
+                x=sub["sample_time"],
+                y=sub["average"],
+                mode="lines+markers",
+                name=label,
+                marker=dict(
+                    color=colors[label],
+                    line=dict(color="black", width=1.2),
+                ),
+                line=dict(color=colors[label]),
+            )
+        )
+
+    fig.update_layout(
+        xaxis=dict(title="Time (h)", range=[0, 100], dtick=25),
+        yaxis=dict(
+            title="CFU/mL",
+            type="log",
+            exponentformat="power",
+            range=[6, 10],
+        ),
+        title="CFUs/mL in At Oa Succinate+Glucose",
+        width=200,
+        height=150,
+        showlegend=True,
+        legend=dict(
+            yanchor="bottom",
+            y=0.05,
+            yref="paper",
+            xanchor="right",
+            x=0.95,
+            xref="paper",
+            bgcolor="rgba(255,255,255,0)",
+        ),
+    )
+
+    fig = style_plot(fig, line_thickness=2, marker_size=8, font_size=11)
+    fig.write_image("plots/cfus/cfu_atoa_succinate_glucose.svg")
+
+    fig_zoom = go.Figure()
+
+    for species in ["at_coculture", "oa_coculture"]:
+        sub = df[df["species"] == species].sort_values("sample_time")
+        sub = sub[sub["sample_time"] <= 60]
+        label = species_map[species]
+
+        fig_zoom.add_trace(
+            go.Scatter(
+                x=sub["sample_time"],
+                y=sub["average"],
+                mode="lines+markers",
+                name=label,
+                marker=dict(
+                    color=colors[label],
+                    line=dict(color="black", width=1.2),
+                ),
+                line=dict(color=colors[label]),
+            )
+        )
+
+    fig_zoom.update_layout(
+        xaxis=dict(title="Time (h)", range=[0, 60], dtick=20),
+        yaxis=dict(
+            title="CFU/mL",
+            type="log",
+            exponentformat="power",
+            range=[6, 10],
+        ),
+        title="CFUs/mL in At Oa Succinate+Glucose (0–60 h)",
+        width=200,
+        height=180,
+        showlegend=False,
+    )
+
+    fig_zoom = style_plot(fig_zoom, line_thickness=2, marker_size=8, font_size=11)
+    fig_zoom.write_image("plots/cfus/cfu_atoa_succinate_glucose_0_60.svg")
 
 
 def plot_od_succinate_glucose():
@@ -197,6 +322,7 @@ def plot_od_succinate_glucose():
             line=dict(color=colors["Succinate+Glucose"]),
         )
     )
+    fig.add_vline(x=77.7, line=dict(color=qualitative.Bold[10], dash="dash", width=2))
     fig.update_layout(
         xaxis=dict(title="Time (h)"),
         yaxis=dict(title="OD<sub>600</sub>"),
@@ -209,4 +335,8 @@ def plot_od_succinate_glucose():
     fig.write_image("plots/cfus/od_succinate_glucose.svg")
 
 
-plot_cfus()
+# plot_resources()
+# plot_cfus()
+plot_coculture_resources()
+plot_coculture_cfus()
+# plot_od_succinate_glucose()

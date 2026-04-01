@@ -427,7 +427,7 @@ def make_cfu_plot(fit):
         width=200,
         height=180,
         title="Oa Succinate Glucose",
-        showlegend=True,
+        showlegend=False,
         legend=dict(
             yanchor="top",
             y=0.95,
@@ -509,10 +509,10 @@ def make_resource_plot(fit):
     )
 
     fig.update_layout(
-        width=200,
-        height=180,
+        height=200,
+        width=260,
         title="Oa Succinate Glucose",
-        showlegend=True,
+        showlegend=False,
         legend=dict(
             yanchor="top",
             y=0.95,

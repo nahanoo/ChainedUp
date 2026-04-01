@@ -28,6 +28,12 @@ def simulate_endpoints(args):
         at.a, oa.a = a
 
     model = Model(at, oa, None, xs, conc, 0.3)
+
+    feed_g = float(params["g_in"].iloc[0])
+    feed_s = float(params["s_in"].iloc[0])
+    model.M_glucose = feed_g
+    model.M_succinate = feed_s
+
     model.integrate_model()
 
     return (
@@ -42,80 +48,131 @@ def simulate_endpoints(args):
     )
 
 
+def pick_evenly_spaced_indices(x, y, n_points=50, log_space=True, eps=1e-12):
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    mask = np.isfinite(x) & np.isfinite(y)
+    x = x[mask]
+    y = y[mask]
+
+    if len(x) == 0:
+        return np.array([], dtype=int)
+
+    if log_space:
+        X = np.log10(np.clip(x, eps, None))
+        Y = np.log10(np.clip(y, eps, None))
+    else:
+        X = x.copy()
+        Y = y.copy()
+
+    keep = np.ones(len(X), dtype=bool)
+    keep[1:] = (np.diff(X) != 0) | (np.diff(Y) != 0)
+    X = X[keep]
+    Y = Y[keep]
+    original_idx = np.where(mask)[0][keep]
+
+    if len(original_idx) <= n_points:
+        return original_idx
+
+    ds = np.sqrt(np.diff(X) ** 2 + np.diff(Y) ** 2)
+    s = np.concatenate([[0.0], np.cumsum(ds)])
+
+    if s[-1] == 0:
+        idx = np.linspace(0, len(original_idx) - 1, n_points).astype(int)
+        return original_idx[idx]
+
+    s_targets = np.linspace(0.0, s[-1], n_points)
+    idx = np.searchsorted(s, s_targets, side="left")
+    idx = np.clip(idx, 0, len(original_idx) - 1)
+    idx = np.unique(idx)
+
+    return original_idx[idx]
+
+
 def a_mono_culture():
     conc = 15
-    p_f = path.join("parameters", f"parameters_{conc}_mM_C.csv")
+    p_f = path.join("parameters", "parameters_15_mM_C_area.csv")
     params = pd.read_csv(p_f, index_col=0)
+
     xs = np.linspace(0, 100, 1000)
-    aas = np.linspace(0.0, 1.0, 50)
+
+    # simulate densely in a
+    aas_fine = np.linspace(0.0, 1.0, 2000)
+    i_half = np.argmin(np.abs(aas_fine - 0.5))
     with Pool() as pool:
-        args_at = [(conc, params, xs, "At", a) for a in aas]
-        results_at = pool.map(simulate_endpoints, args_at)
-        suc_at_c1, gluc_at_c1, at_c1, oa_c1, suc_at_c2, gluc_at_c2, at_c2, oa_c2 = (
-            np.asarray(results_at).T
-        )
-        args_oa = [(conc, params, xs, "Oa", a) for a in aas]
-        results_oa = pool.map(simulate_endpoints, args_oa)
-        suc_oa_c1, gluc_oa_c1, _, oa_c1, suc_oa_c2, gluc_oa_c2, _, oa_c2 = np.asarray(
-            results_oa
-        ).T
+        args_oa = [(conc, params, xs, "Oa", a) for a in aas_fine]
+        results_oa = np.asarray(pool.map(simulate_endpoints, args_oa))
+
+    suc_oa_c1, gluc_oa_c1, _, oa_c1, suc_oa_c2, gluc_oa_c2, _, oa_c2 = results_oa.T
+
+    # keep only evenly spaced points in displayed log-log space
+    idx_oa = pick_evenly_spaced_indices(
+        suc_oa_c1,
+        gluc_oa_c1,
+        n_points=30,
+        log_space=True,
+    )
+
+    eps = 1e-12
 
     fig = go.Figure()
+
     fig.add_trace(
         go.Scatter(
-            x=suc_at_c1,
-            y=gluc_at_c1,
+            x=np.clip(suc_oa_c1[idx_oa], eps, None),
+            y=np.clip(gluc_oa_c1[idx_oa], eps, None),
             mode="markers",
             marker=dict(
-                symbol="triangle-up",
-                color=aas,
+                color=aas_fine[idx_oa],
                 colorscale="cividis",
                 showscale=True,
+                size=9,
                 colorbar=dict(
                     title="a",
-                    len=0.55,  # height as fraction of plotting area
+                    len=0.8,
                     lenmode="fraction",
                     y=0.5,
                     yanchor="middle",
-                    thickness=14,  # width in px (optional)
+                    thickness=14,
                 ),
             ),
-            name="At",
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=suc_oa_c1,
-            y=gluc_oa_c1,
-            mode="markers",
-            marker=dict(
-                color=aas,
-                colorscale="cividis",
-                showscale=False,
-            ),
-            line=dict(width=2),
             name="Oa",
         )
     )
+    fig.add_trace(
+        go.Scatter(
+            x=[np.clip(suc_oa_c1[i_half], eps, None)],
+            y=[np.clip(gluc_oa_c1[i_half], eps, None)],
+            mode="markers",
+            marker=dict(
+                size=16,
+                symbol="circle-open",
+                line=dict(width=3, color="red"),
+            ),
+            name="a = 0.5",
+            showlegend=True,
+        )
+    )
+
     fig.update_layout(
         xaxis=dict(
-            title="Succinate [mM]",
-            type="log",
-            exponentformat="power",
+            title="Succinate (Area)", type="log", exponentformat="power", range=[-3, 1]
         ),
         yaxis=dict(
-            title="Glucose [mM]",
-            type="log",
-            exponentformat="power",
+            title="Glucose (Area)", type="log", exponentformat="power", range=[-3, 1]
         ),
-        title="Mono-culture",
-        height=430,
-        width=380,
-        showlegend=True,
+        title="Steady states at different allocations",
+        height=200,
+        width=240,
+        showlegend=False,
     )
-    fig = style_plot(fig, line_thickness=3, marker_size=10, font_size=14)
+
+    fig = style_plot(fig, line_thickness=3, marker_size=8, font_size=11)
     fig.write_image("plots/contours/mono_culture_resource_allocation.svg")
+
+
+a_mono_culture()
 
 
 def resource_allocation_heatmap():
@@ -525,9 +582,6 @@ def plot_isoclines():
     fig = style_plot(fig, font_size=font_size, line_thickness=3, marker_size=10)
     fig.write_image("plots/contours/isoclines_f_a.svg")
     return fig
-
-
-plot_isoclines()
 
 
 def G_required_for_level(S, sp, level):

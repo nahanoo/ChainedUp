@@ -102,8 +102,8 @@ def update_layout(fig, title, yaxis_title):
         title=title,
         xaxis=dict(title="Time (h)", range=[0, 100], dtick=50),
         yaxis=dict(title=yaxis_title),
-        width=145,
-        height=135,
+        width=220,
+        height=160,
     )
     fig = style_plot(fig, line_thickness=3)
     return fig
